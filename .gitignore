@@ -39,3 +39,7 @@ npm-debug.log*
 
 # Turbo
 .turbo/
+
+# Agent skills
+.opencode/
+.agents/
