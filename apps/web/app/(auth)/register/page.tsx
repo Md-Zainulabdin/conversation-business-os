@@ -42,8 +42,8 @@ export default function RegisterPage() {
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Create account</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">Enter your details to get started</p>
       </div>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        <div className="space-y-1.5">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-y-5">
+        <div className="flex flex-col gap-y-1.5">
           <Label htmlFor="name" className="text-sm font-medium">Name</Label>
           <Input
             id="name"
@@ -52,7 +52,7 @@ export default function RegisterPage() {
           />
           {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
         </div>
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-y-1.5">
           <Label htmlFor="email" className="text-sm font-medium">Email</Label>
           <Input
             id="email"
@@ -62,7 +62,7 @@ export default function RegisterPage() {
           />
           {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
         </div>
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-y-1.5">
           <Label htmlFor="password" className="text-sm font-medium">Password</Label>
           <Input
             id="password"

@@ -23,6 +23,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+    }
     const body = await res.json().catch(() => ({}));
     throw new ApiError(
       body.detail || res.statusText,
@@ -30,6 +37,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     );
   }
 
+  if (res.status === 204) return undefined as T;
   return res.json();
 }
 

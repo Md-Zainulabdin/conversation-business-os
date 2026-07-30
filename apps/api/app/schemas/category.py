@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -6,23 +7,17 @@ from pydantic import BaseModel
 class CategoryCreate(BaseModel):
     name: str
     description: str | None = None
-    color: str | None = None
-    is_active: bool = True
 
 
 class CategoryUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
-    color: str | None = None
-    is_active: bool | None = None
 
 
 class CategoryResponse(BaseModel):
-    id: int
+    id: uuid.UUID
     name: str
     description: str | None
-    color: str | None
-    is_active: bool
     created_at: datetime
     updated_at: datetime
 

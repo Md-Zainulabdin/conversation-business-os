@@ -40,8 +40,8 @@ export default function LoginPage() {
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Sign in</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">Enter your credentials to continue</p>
       </div>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        <div className="space-y-1.5">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-y-5">
+        <div className="flex flex-col gap-y-1.5">
           <Label htmlFor="email" className="text-sm font-medium">Email</Label>
           <Input
             id="email"
@@ -51,7 +51,7 @@ export default function LoginPage() {
           />
           {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
         </div>
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-y-1.5">
           <Label htmlFor="password" className="text-sm font-medium">Password</Label>
           <Input
             id="password"

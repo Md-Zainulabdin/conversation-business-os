@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +13,7 @@ async def list_categories(db: AsyncSession) -> list[Category]:
     return list(result.scalars().all())
 
 
-async def get_category(db: AsyncSession, category_id: int) -> Category:
+async def get_category(db: AsyncSession, category_id: uuid.UUID) -> Category:
     result = await db.execute(select(Category).where(Category.id == category_id))
     category = result.scalar_one_or_none()
     if not category:
@@ -24,12 +26,7 @@ async def create_category(db: AsyncSession, data: CategoryCreate) -> Category:
     if result.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Category already exists")
 
-    category = Category(
-        name=data.name,
-        description=data.description,
-        color=data.color,
-        is_active=data.is_active,
-    )
+    category = Category(name=data.name, description=data.description)
     db.add(category)
     try:
         await db.commit()
@@ -41,7 +38,7 @@ async def create_category(db: AsyncSession, data: CategoryCreate) -> Category:
 
 
 async def update_category(
-    db: AsyncSession, category_id: int, data: CategoryUpdate
+    db: AsyncSession, category_id: uuid.UUID, data: CategoryUpdate
 ) -> Category:
     category = await get_category(db, category_id)
 
@@ -54,10 +51,6 @@ async def update_category(
         category.name = data.name
     if data.description is not None:
         category.description = data.description
-    if data.color is not None:
-        category.color = data.color
-    if data.is_active is not None:
-        category.is_active = data.is_active
 
     try:
         await db.commit()
@@ -68,7 +61,7 @@ async def update_category(
     return category
 
 
-async def delete_category(db: AsyncSession, category_id: int) -> None:
+async def delete_category(db: AsyncSession, category_id: uuid.UUID) -> None:
     category = await get_category(db, category_id)
     try:
         await db.delete(category)

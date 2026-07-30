@@ -1,0 +1,848 @@
+{
+  "products": [
+    {
+      "id": "prod-001",
+      "name": "Super Basmati Rice 5kg",
+      "sku": "GRN-RICE-05",
+      "category": "Grains",
+      "unit": "Pack",
+      "purchase_price": 12.50,
+      "selling_price": 16.00,
+      "stock_quantity": 45,
+      "minimum_stock": 10,
+      "created_at": "2026-07-01T09:00:00Z",
+      "updated_at": "2026-07-28T14:30:00Z"
+    },
+    {
+      "id": "prod-002",
+      "name": "Coca Cola 1.5L Bottle",
+      "sku": "BEV-COKE-15",
+      "category": "Beverages",
+      "unit": "Piece",
+      "purchase_price": 1.20,
+      "selling_price": 1.80,
+      "stock_quantity": 120,
+      "minimum_stock": 25,
+      "created_at": "2026-07-02T10:15:00Z",
+      "updated_at": "2026-07-27T16:00:00Z"
+    },
+    {
+      "id": "prod-003",
+      "name": "Full Cream Milk 1L",
+      "sku": "DRY-MILK-01",
+      "category": "Dairy",
+      "unit": "Litre",
+      "purchase_price": 1.10,
+      "selling_price": 1.50,
+      "stock_quantity": 8,
+      "minimum_stock": 15,
+      "created_at": "2026-07-05T08:30:00Z",
+      "updated_at": "2026-07-29T09:00:00Z"
+    },
+    {
+      "id": "prod-004",
+      "name": "Whole Wheat Flour 10kg",
+      "sku": "GRN-FLOU-10",
+      "category": "Grains",
+      "unit": "Pack",
+      "purchase_price": 8.00,
+      "selling_price": 11.20,
+      "stock_quantity": 30,
+      "minimum_stock": 10,
+      "created_at": "2026-07-08T11:45:00Z",
+      "updated_at": "2026-07-28T12:00:00Z"
+    },
+    {
+      "id": "prod-005",
+      "name": "Refined Cooking Oil 3L",
+      "sku": "OIL-COOK-03",
+      "category": "Oils & Ghee",
+      "unit": "Litre",
+      "purchase_price": 6.50,
+      "selling_price": 9.00,
+      "stock_quantity": 5,
+      "minimum_stock": 12,
+      "created_at": "2026-07-10T14:20:00Z",
+      "updated_at": "2026-07-29T10:15:00Z"
+    },
+    {
+      "id": "prod-006",
+      "name": "Lipton Yellow Label Tea 500g",
+      "sku": "BEV-TEA-500",
+      "category": "Beverages",
+      "unit": "Pack",
+      "purchase_price": 4.20,
+      "selling_price": 6.00,
+      "stock_quantity": 60,
+      "minimum_stock": 15,
+      "created_at": "2026-07-12T09:10:00Z",
+      "updated_at": "2026-07-26T18:40:00Z"
+    },
+    {
+      "id": "prod-007",
+      "name": "White Refined Sugar 5kg",
+      "sku": "GRN-SUGA-05",
+      "category": "Grains",
+      "unit": "Pack",
+      "purchase_price": 4.80,
+      "selling_price": 6.50,
+      "stock_quantity": 85,
+      "minimum_stock": 20,
+      "created_at": "2026-07-15T13:00:00Z",
+      "updated_at": "2026-07-28T15:20:00Z"
+    },
+    {
+      "id": "prod-008",
+      "name": "Unsalted Butter 200g",
+      "sku": "DRY-BUTT-20",
+      "category": "Dairy",
+      "unit": "Piece",
+      "purchase_price": 2.00,
+      "selling_price": 2.80,
+      "stock_quantity": 18,
+      "minimum_stock": 10,
+      "created_at": "2026-07-18T10:00:00Z",
+      "updated_at": "2026-07-27T11:30:00Z"
+    },
+    {
+      "id": "prod-009",
+      "name": "Dishwashing Liquid 750ml",
+      "sku": "HSH-DISH-75",
+      "category": "Household",
+      "unit": "Bottle",
+      "purchase_price": 2.50,
+      "selling_price": 3.70,
+      "stock_quantity": 4,
+      "minimum_stock": 8,
+      "created_at": "2026-07-20T15:30:00Z",
+      "updated_at": "2026-07-29T11:00:00Z"
+    },
+    {
+      "id": "prod-010",
+      "name": "Potato Chips Salted 150g",
+      "sku": "SNK-CHIP-15",
+      "category": "Snacks",
+      "unit": "Pack",
+      "purchase_price": 0.80,
+      "selling_price": 1.40,
+      "stock_quantity": 110,
+      "minimum_stock": 30,
+      "created_at": "2026-07-22T16:00:00Z",
+      "updated_at": "2026-07-28T17:45:00Z"
+    }
+  ],
+  "customers": [
+    {
+      "id": "cust-001",
+      "name": "Ali Hassan",
+      "phone": "+92 300 1234567",
+      "address": "12 Top Commercial Area, Gulberg, Lahore",
+      "created_at": "2026-06-15T10:30:00Z",
+      "updated_at": "2026-07-20T11:00:00Z"
+    },
+    {
+      "id": "cust-002",
+      "name": "Fatima Zahra",
+      "phone": "+92 321 9876543",
+      "address": "House 45, Sector F-7, Islamabad",
+      "created_at": "2026-06-18T14:20:00Z",
+      "updated_at": "2026-07-22T09:15:00Z"
+    },
+    {
+      "id": "cust-003",
+      "name": "Muhammad Usman",
+      "phone": "+92 333 4567890",
+      "address": "78 Clifton Block 5, Karachi",
+      "created_at": "2026-06-20T09:00:00Z",
+      "updated_at": "2026-07-25T16:40:00Z"
+    },
+    {
+      "id": "cust-004",
+      "name": "Ayesha Khan",
+      "phone": "+92 301 5551234",
+      "address": "Plot 12B, Model Town, Multan",
+      "created_at": "2026-06-25T11:10:00Z",
+      "updated_at": "2026-07-18T13:30:00Z"
+    },
+    {
+      "id": "cust-005",
+      "name": "Tariq Mahmood",
+      "phone": "+92 345 6789012",
+      "address": "University Road, Peshawar",
+      "created_at": "2026-07-01T15:45:00Z",
+      "updated_at": "2026-07-28T10:20:00Z"
+    },
+    {
+      "id": "cust-006",
+      "name": "Zainab Malik",
+      "phone": "+92 312 3456789",
+      "address": "DHA Phase 6, Karachi",
+      "created_at": "2026-07-04T08:50:00Z",
+      "updated_at": "2026-07-26T14:10:00Z"
+    },
+    {
+      "id": "cust-007",
+      "name": "Bilal Ahmed",
+      "phone": "+92 302 8887766",
+      "address": "Satellite Town, Rawalpindi",
+      "created_at": "2026-07-10T12:00:00Z",
+      "updated_at": "2026-07-27T17:00:00Z"
+    },
+    {
+      "id": "cust-008",
+      "name": "Sana Iqbal",
+      "phone": "+92 323 1122334",
+      "address": "Jinnah Colony, Faisalabad",
+      "created_at": "2026-07-14T16:30:00Z",
+      "updated_at": "2026-07-29T08:45:00Z"
+    },
+    {
+      "id": "cust-009",
+      "name": "Hamza Raza",
+      "phone": "+92 334 9988776",
+      "address": "Cantonment Area, Quetta",
+      "created_at": "2026-07-19T10:15:00Z",
+      "updated_at": "2026-07-28T11:50:00Z"
+    },
+    {
+      "id": "cust-010",
+      "name": "Maryam Nawaz",
+      "phone": "+92 305 4433221",
+      "address": "Johar Town Phase 2, Lahore",
+      "created_at": "2026-07-23T13:40:00Z",
+      "updated_at": "2026-07-29T12:10:00Z"
+    }
+  ],
+  "sales": [
+    {
+      "id": "sale-001",
+      "customer_id": "cust-001",
+      "customer_name": "Ali Hassan",
+      "product_id": "prod-001",
+      "product_name": "Super Basmati Rice 5kg",
+      "quantity": 3,
+      "unit_price": 16.00,
+      "total_amount": 48.00,
+      "sale_date": "2026-07-28T16:20:00Z",
+      "notes": "Paid in cash",
+      "created_at": "2026-07-28T16:20:00Z"
+    },
+    {
+      "id": "sale-002",
+      "customer_id": "cust-002",
+      "customer_name": "Fatima Zahra",
+      "product_id": "prod-002",
+      "product_name": "Coca Cola 1.5L Bottle",
+      "quantity": 12,
+      "unit_price": 1.80,
+      "total_amount": 21.60,
+      "sale_date": "2026-07-28T17:45:00Z",
+      "notes": "Party order via WhatsApp",
+      "created_at": "2026-07-28T17:45:00Z"
+    },
+    {
+      "id": "sale-003",
+      "customer_id": "cust-003",
+      "customer_name": "Muhammad Usman",
+      "product_id": "prod-004",
+      "product_name": "Whole Wheat Flour 10kg",
+      "quantity": 2,
+      "unit_price": 11.20,
+      "total_amount": 22.40,
+      "sale_date": "2026-07-28T18:10:00Z",
+      "notes": "Card payment",
+      "created_at": "2026-07-28T18:10:00Z"
+    },
+    {
+      "id": "sale-004",
+      "customer_id": "cust-004",
+      "customer_name": "Ayesha Khan",
+      "product_id": "prod-006",
+      "product_name": "Lipton Yellow Label Tea 500g",
+      "quantity": 4,
+      "unit_price": 6.00,
+      "total_amount": 24.00,
+      "sale_date": "2026-07-29T09:30:00Z",
+      "notes": "Regular grocery pickup",
+      "created_at": "2026-07-29T09:30:00Z"
+    },
+    {
+      "id": "sale-005",
+      "customer_id": "cust-005",
+      "customer_name": "Tariq Mahmood",
+      "product_id": "prod-005",
+      "product_name": "Refined Cooking Oil 3L",
+      "quantity": 2,
+      "unit_price": 9.00,
+      "total_amount": 18.00,
+      "sale_date": "2026-07-29T10:15:00Z",
+      "notes": "Home delivery",
+      "created_at": "2026-07-29T10:15:00Z"
+    },
+    {
+      "id": "sale-006",
+      "customer_id": "cust-006",
+      "customer_name": "Zainab Malik",
+      "product_id": "prod-007",
+      "product_name": "White Refined Sugar 5kg",
+      "quantity": 5,
+      "unit_price": 6.50,
+      "total_amount": 32.50,
+      "sale_date": "2026-07-29T11:00:00Z",
+      "notes": "Bakery batch purchase",
+      "created_at": "2026-07-29T11:00:00Z"
+    },
+    {
+      "id": "sale-007",
+      "customer_id": "cust-007",
+      "customer_name": "Bilal Ahmed",
+      "product_id": "prod-010",
+      "product_name": "Potato Chips Salted 150g",
+      "quantity": 10,
+      "unit_price": 1.40,
+      "total_amount": 14.00,
+      "sale_date": "2026-07-29T12:20:00Z",
+      "notes": "Snacks restock",
+      "created_at": "2026-07-29T12:20:00Z"
+    },
+    {
+      "id": "sale-008",
+      "customer_id": "cust-008",
+      "customer_name": "Sana Iqbal",
+      "product_id": "prod-003",
+      "product_name": "Full Cream Milk 1L",
+      "quantity": 6,
+      "unit_price": 1.50,
+      "total_amount": 9.00,
+      "sale_date": "2026-07-29T13:00:00Z",
+      "notes": "Daily morning order",
+      "created_at": "2026-07-29T13:00:00Z"
+    },
+    {
+      "id": "sale-009",
+      "customer_id": "cust-009",
+      "customer_name": "Hamza Raza",
+      "product_id": "prod-008",
+      "product_name": "Unsalted Butter 200g",
+      "quantity": 3,
+      "unit_price": 2.80,
+      "total_amount": 8.40,
+      "sale_date": "2026-07-29T14:15:00Z",
+      "notes": "Counter purchase",
+      "created_at": "2026-07-29T14:15:00Z"
+    },
+    {
+      "id": "sale-010",
+      "customer_id": "cust-010",
+      "customer_name": "Maryam Nawaz",
+      "product_id": "prod-009",
+      "product_name": "Dishwashing Liquid 750ml",
+      "quantity": 2,
+      "unit_price": 3.70,
+      "total_amount": 7.40,
+      "sale_date": "2026-07-29T15:00:00Z",
+      "notes": "Household cleaning supplies",
+      "created_at": "2026-07-29T15:00:00Z"
+    }
+  ],
+  "purchases": [
+    {
+      "id": "purch-001",
+      "product_id": "prod-001",
+      "product_name": "Super Basmati Rice 5kg",
+      "supplier_name": "Punjab Agro Mills",
+      "quantity": 50,
+      "purchase_price": 12.50,
+      "total_amount": 625.00,
+      "purchase_date": "2026-07-20T09:00:00Z",
+      "notes": "Bulk seasonal restock",
+      "created_at": "2026-07-20T09:00:00Z"
+    },
+    {
+      "id": "purch-002",
+      "product_id": "prod-002",
+      "product_name": "Coca Cola 1.5L Bottle",
+      "supplier_name": "Beverage Traders Ltd",
+      "quantity": 150,
+      "purchase_price": 1.20,
+      "total_amount": 180.00,
+      "purchase_date": "2026-07-21T11:30:00Z",
+      "notes": "Weekly beverage shipment",
+      "created_at": "2026-07-21T11:30:00Z"
+    },
+    {
+      "id": "purch-003",
+      "product_id": "prod-003",
+      "product_name": "Full Cream Milk 1L",
+      "supplier_name": "Fresh Dairy Farms",
+      "quantity": 60,
+      "purchase_price": 1.10,
+      "total_amount": 66.00,
+      "purchase_date": "2026-07-22T07:30:00Z",
+      "notes": "Fresh stock shipment",
+      "created_at": "2026-07-22T07:30:00Z"
+    },
+    {
+      "id": "purch-004",
+      "product_id": "prod-004",
+      "product_name": "Whole Wheat Flour 10kg",
+      "supplier_name": "Al-Barkat Flour Mills",
+      "quantity": 40,
+      "purchase_price": 8.00,
+      "total_amount": 320.00,
+      "purchase_date": "2026-07-23T14:00:00Z",
+      "notes": "Grain inventory order",
+      "created_at": "2026-07-23T14:00:00Z"
+    },
+    {
+      "id": "purch-005",
+      "product_id": "prod-005",
+      "product_name": "Refined Cooking Oil 3L",
+      "supplier_name": "Habib Oil Industries",
+      "quantity": 25,
+      "purchase_price": 6.50,
+      "total_amount": 162.50,
+      "purchase_date": "2026-07-24T10:20:00Z",
+      "notes": "Oil drum replenishment",
+      "created_at": "2026-07-24T10:20:00Z"
+    },
+    {
+      "id": "purch-006",
+      "product_id": "prod-006",
+      "product_name": "Lipton Yellow Label Tea 500g",
+      "supplier_name": "Unilever Wholesale",
+      "quantity": 80,
+      "purchase_price": 4.20,
+      "total_amount": 336.00,
+      "purchase_date": "2026-07-25T13:15:00Z",
+      "notes": "Tea crates restock",
+      "created_at": "2026-07-25T13:15:00Z"
+    },
+    {
+      "id": "purch-007",
+      "product_id": "prod-007",
+      "product_name": "White Refined Sugar 5kg",
+      "supplier_name": "Chiniot Sugar Mills",
+      "quantity": 100,
+      "purchase_price": 4.80,
+      "total_amount": 480.00,
+      "purchase_date": "2026-07-26T09:45:00Z",
+      "notes": "Sugar bags lot",
+      "created_at": "2026-07-26T09:45:00Z"
+    },
+    {
+      "id": "purch-008",
+      "product_id": "prod-008",
+      "product_name": "Unsalted Butter 200g",
+      "supplier_name": "Fresh Dairy Farms",
+      "quantity": 30,
+      "purchase_price": 2.00,
+      "total_amount": 60.00,
+      "purchase_date": "2026-07-27T08:10:00Z",
+      "notes": "Cold storage dairy stock",
+      "created_at": "2026-07-27T08:10:00Z"
+    },
+    {
+      "id": "purch-009",
+      "product_id": "prod-009",
+      "product_name": "Dishwashing Liquid 750ml",
+      "supplier_name": "Consumer Goods Co",
+      "quantity": 20,
+      "purchase_price": 2.50,
+      "total_amount": 50.00,
+      "purchase_date": "2026-07-28T12:00:00Z",
+      "notes": "Hygiene supplies",
+      "created_at": "2026-07-28T12:00:00Z"
+    },
+    {
+      "id": "purch-010",
+      "product_id": "prod-010",
+      "product_name": "Potato Chips Salted 150g",
+      "supplier_name": "Lays Snack Distribution",
+      "quantity": 120,
+      "purchase_price": 0.80,
+      "total_amount": 96.00,
+      "purchase_date": "2026-07-29T10:00:00Z",
+      "notes": "Confectionery carton box",
+      "created_at": "2026-07-29T10:00:00Z"
+    }
+  ],
+  "expenses": [
+    {
+      "id": "exp-001",
+      "title": "July Store Electricity Bill",
+      "category": "Electricity",
+      "amount": 245.50,
+      "expense_date": "2026-07-25T08:00:00Z",
+      "notes": "LESCO bill payment online",
+      "created_at": "2026-07-25T08:00:00Z"
+    },
+    {
+      "id": "exp-002",
+      "title": "High-Speed Fiber Internet",
+      "category": "Internet",
+      "amount": 45.00,
+      "expense_date": "2026-07-26T09:30:00Z",
+      "notes": "Monthly broadband subscription",
+      "created_at": "2026-07-26T09:30:00Z"
+    },
+    {
+      "id": "exp-003",
+      "title": "Goods Delivery Transport Fare",
+      "category": "Transport",
+      "amount": 65.00,
+      "expense_date": "2026-07-26T14:15:00Z",
+      "notes": "Rickshaw cargo transport from wholesale market",
+      "created_at": "2026-07-26T14:15:00Z"
+    },
+    {
+      "id": "exp-004",
+      "title": "Store Assistant Weekly Salary",
+      "category": "Salary",
+      "amount": 180.00,
+      "expense_date": "2026-07-27T17:00:00Z",
+      "notes": "Helper wage for July Week 4",
+      "created_at": "2026-07-27T17:00:00Z"
+    },
+    {
+      "id": "exp-005",
+      "title": "Packaging Tape & Plastic Bags",
+      "category": "Miscellaneous",
+      "amount": 25.00,
+      "expense_date": "2026-07-28T10:00:00Z",
+      "notes": "Store counter packing items",
+      "created_at": "2026-07-28T10:00:00Z"
+    },
+    {
+      "id": "exp-006",
+      "title": "Water Cooler Maintenance",
+      "category": "Miscellaneous",
+      "amount": 35.00,
+      "expense_date": "2026-07-28T12:45:00Z",
+      "notes": "Filter change for customer drinking water",
+      "created_at": "2026-07-28T12:45:00Z"
+    },
+    {
+      "id": "exp-007",
+      "title": "Fuel for Delivery Scooter",
+      "category": "Transport",
+      "amount": 30.00,
+      "expense_date": "2026-07-28T16:20:00Z",
+      "notes": "Home delivery fuel allowance",
+      "created_at": "2026-07-28T16:20:00Z"
+    },
+    {
+      "id": "exp-008",
+      "title": "Generator Backup Diesel",
+      "category": "Electricity",
+      "amount": 85.00,
+      "expense_date": "2026-07-29T08:15:00Z",
+      "notes": "Emergency power backup during outage",
+      "created_at": "2026-07-29T08:15:00Z"
+    },
+    {
+      "id": "exp-009",
+      "title": "Printing Paper & Receipts",
+      "category": "Miscellaneous",
+      "amount": 18.50,
+      "expense_date": "2026-07-29T11:00:00Z",
+      "notes": "POS thermal receipt paper rolls",
+      "created_at": "2026-07-29T11:00:00Z"
+    },
+    {
+      "id": "exp-010",
+      "title": "Part-Time Stocker Salary",
+      "category": "Salary",
+      "amount": 120.00,
+      "expense_date": "2026-07-29T15:30:00Z",
+      "notes": "Night shift stocking payout",
+      "created_at": "2026-07-29T15:30:00Z"
+    }
+  ],
+  "reports": [
+    {
+      "id": "rep-001",
+      "report_date": "2026-07-29",
+      "title": "Daily Revenue & Margins Audit",
+      "category": "Daily Summary",
+      "total_sales_count": 48,
+      "total_revenue": 1420.50,
+      "total_expenses": 173.50,
+      "net_profit": 1247.00,
+      "notes": "Peak sales in grains and beverages",
+      "created_at": "2026-07-29T18:00:00Z"
+    },
+    {
+      "id": "rep-002",
+      "report_date": "2026-07-28",
+      "title": "Low Stock Threshold Alert",
+      "category": "Low Stock Alert",
+      "total_sales_count": 35,
+      "total_revenue": 980.00,
+      "total_expenses": 245.00,
+      "net_profit": 735.00,
+      "notes": "Milk and Dishwashing liquid reached minimum stock",
+      "created_at": "2026-07-28T18:00:00Z"
+    },
+    {
+      "id": "rep-003",
+      "report_date": "2026-07-27",
+      "title": "Weekly Inventory Health Inspection",
+      "category": "Inventory Health",
+      "total_sales_count": 62,
+      "total_revenue": 1890.20,
+      "total_expenses": 180.00,
+      "net_profit": 1710.20,
+      "notes": "Dairy and Grains rotated successfully",
+      "created_at": "2026-07-27T18:00:00Z"
+    },
+    {
+      "id": "rep-004",
+      "report_date": "2026-07-26",
+      "title": "Sunday Sales & Customer Traffic",
+      "category": "Daily Summary",
+      "total_sales_count": 55,
+      "total_revenue": 1650.00,
+      "total_expenses": 110.00,
+      "net_profit": 1540.00,
+      "notes": "High demand for household and cooking oil",
+      "created_at": "2026-07-26T18:00:00Z"
+    },
+    {
+      "id": "rep-005",
+      "report_date": "2026-07-25",
+      "title": "Supplier Purchase Cost Breakdown",
+      "category": "Revenue Audit",
+      "total_sales_count": 40,
+      "total_revenue": 1210.00,
+      "total_expenses": 336.00,
+      "net_profit": 874.00,
+      "notes": "Bulk tea and sugar restock costs recorded",
+      "created_at": "2026-07-25T18:00:00Z"
+    },
+    {
+      "id": "rep-006",
+      "report_date": "2026-07-24",
+      "title": "Mid-Month Profitability Analysis",
+      "category": "Revenue Audit",
+      "total_sales_count": 44,
+      "total_revenue": 1340.00,
+      "total_expenses": 162.50,
+      "net_profit": 1177.50,
+      "notes": "Healthy profit margin of 87%",
+      "created_at": "2026-07-24T18:00:00Z"
+    },
+    {
+      "id": "rep-007",
+      "report_date": "2026-07-23",
+      "title": "Category Performance: Snacks & Drinks",
+      "category": "Daily Summary",
+      "total_sales_count": 50,
+      "total_revenue": 1100.80,
+      "total_expenses": 96.00,
+      "net_profit": 1004.80,
+      "notes": "Cold drinks surge during hot afternoon",
+      "created_at": "2026-07-23T18:00:00Z"
+    },
+    {
+      "id": "rep-008",
+      "report_date": "2026-07-22",
+      "title": "Customer Credit Ledger Audit",
+      "category": "Revenue Audit",
+      "total_sales_count": 38,
+      "total_revenue": 950.00,
+      "total_expenses": 66.00,
+      "net_profit": 884.00,
+      "notes": "All retail credit settlements processed",
+      "created_at": "2026-07-22T18:00:00Z"
+    },
+    {
+      "id": "rep-009",
+      "report_date": "2026-07-21",
+      "title": "Stock Turnover Rate Summary",
+      "category": "Inventory Health",
+      "total_sales_count": 42,
+      "total_revenue": 1280.00,
+      "total_expenses": 180.00,
+      "net_profit": 1100.00,
+      "notes": "Wheat flour turnover increased by 14%",
+      "created_at": "2026-07-21T18:00:00Z"
+    },
+    {
+      "id": "rep-010",
+      "report_date": "2026-07-20",
+      "title": "Monthly Opening Balance Reconciliation",
+      "category": "Daily Summary",
+      "total_sales_count": 52,
+      "total_revenue": 1550.00,
+      "total_expenses": 625.00,
+      "net_profit": 925.00,
+      "notes": "Initial stock procurement reconciled",
+      "created_at": "2026-07-20T18:00:00Z"
+    }
+  ],
+  "overview": [
+    {
+      "id": "txn-001",
+      "type": "Sale",
+      "reference": "Super Basmati Rice 5kg",
+      "entity": "Customer: Ali Hassan",
+      "amount": 48.00,
+      "status": "Completed",
+      "date": "2026-07-28T16:20:00Z"
+    },
+    {
+      "id": "txn-002",
+      "type": "Purchase",
+      "reference": "Coca Cola 1.5L Bottle (150 pcs)",
+      "entity": "Supplier: Beverage Traders Ltd",
+      "amount": 180.00,
+      "status": "Completed",
+      "date": "2026-07-28T14:10:00Z"
+    },
+    {
+      "id": "txn-003",
+      "type": "Expense",
+      "reference": "July Store Electricity Bill",
+      "entity": "Category: Electricity",
+      "amount": 245.50,
+      "status": "Processed",
+      "date": "2026-07-28T11:30:00Z"
+    },
+    {
+      "id": "txn-004",
+      "type": "Sale",
+      "reference": "Whole Wheat Flour 10kg",
+      "entity": "Customer: Muhammad Usman",
+      "amount": 22.40,
+      "status": "Completed",
+      "date": "2026-07-28T09:45:00Z"
+    },
+    {
+      "id": "txn-005",
+      "type": "Purchase",
+      "reference": "White Refined Sugar 5kg (100 packs)",
+      "entity": "Supplier: Chiniot Sugar Mills",
+      "amount": 480.00,
+      "status": "Completed",
+      "date": "2026-07-27T16:00:00Z"
+    },
+    {
+      "id": "txn-006",
+      "type": "Sale",
+      "reference": "Lipton Yellow Label Tea 500g",
+      "entity": "Customer: Ayesha Khan",
+      "amount": 24.00,
+      "status": "Completed",
+      "date": "2026-07-27T13:20:00Z"
+    },
+    {
+      "id": "txn-007",
+      "type": "Expense",
+      "reference": "Store Assistant Weekly Salary",
+      "entity": "Category: Salary",
+      "amount": 180.00,
+      "status": "Processed",
+      "date": "2026-07-27T10:00:00Z"
+    },
+    {
+      "id": "txn-008",
+      "type": "Sale",
+      "reference": "Refined Cooking Oil 3L",
+      "entity": "Customer: Tariq Mahmood",
+      "amount": 18.00,
+      "status": "Completed",
+      "date": "2026-07-26T15:40:00Z"
+    },
+    {
+      "id": "txn-009",
+      "type": "Purchase",
+      "reference": "Super Basmati Rice 5kg (50 packs)",
+      "entity": "Supplier: Punjab Agro Mills",
+      "amount": 625.00,
+      "status": "Completed",
+      "date": "2026-07-26T11:15:00Z"
+    },
+    {
+      "id": "txn-010",
+      "type": "Expense",
+      "reference": "High-Speed Fiber Internet",
+      "entity": "Category: Internet",
+      "amount": 45.00,
+      "status": "Processed",
+      "date": "2026-07-26T08:30:00Z"
+    }
+  ],
+  "settings": [
+    {
+      "id": "set-001",
+      "setting": "Store Profile Name",
+      "value": "Conversational Business OS (CBO)",
+      "category": "General",
+      "updated_at": "2026-07-29T10:00:00Z"
+    },
+    {
+      "id": "set-002",
+      "setting": "Base Operating Currency",
+      "value": "USD ($)",
+      "category": "Finance",
+      "updated_at": "2026-07-29T10:00:00Z"
+    },
+    {
+      "id": "set-003",
+      "setting": "Low Stock Threshold Alerting",
+      "value": "Enabled (Min Stock < 10)",
+      "category": "Inventory",
+      "updated_at": "2026-07-29T10:00:00Z"
+    },
+    {
+      "id": "set-004",
+      "setting": "WhatsApp Cloud API Integration",
+      "value": "Connected (+92 300 0000000)",
+      "category": "Integrations",
+      "updated_at": "2026-07-29T10:00:00Z"
+    },
+    {
+      "id": "set-005",
+      "setting": "OpenAI Whisper STT Model",
+      "value": "whisper-1 (Auto-Transcribe Voice Notes)",
+      "category": "AI",
+      "updated_at": "2026-07-29T10:00:00Z"
+    },
+    {
+      "id": "set-006",
+      "setting": "OpenAI GPT Intent Extraction",
+      "value": "gpt-4o (Strict JSON Output)",
+      "category": "AI",
+      "updated_at": "2026-07-29T10:00:00Z"
+    },
+    {
+      "id": "set-007",
+      "setting": "Automatic Inventory Deduction on Sale",
+      "value": "Active",
+      "category": "Inventory",
+      "updated_at": "2026-07-29T10:00:00Z"
+    },
+    {
+      "id": "set-008",
+      "setting": "Automatic Inventory Addition on Purchase",
+      "value": "Active",
+      "category": "Inventory",
+      "updated_at": "2026-07-29T10:00:00Z"
+    },
+    {
+      "id": "set-009",
+      "setting": "Receipt Printing Template",
+      "value": "Compact Thermal 80mm",
+      "category": "POS",
+      "updated_at": "2026-07-29T10:00:00Z"
+    },
+    {
+      "id": "set-010",
+      "setting": "Daily Summary Email Report",
+      "value": "Active (Sent at 09:00 PM)",
+      "category": "Notifications",
+      "updated_at": "2026-07-29T10:00:00Z"
+    }
+  ]
+}

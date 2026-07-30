@@ -2,6 +2,17 @@ import { create } from "zustand";
 
 import { api } from "@/lib/api";
 
+const TOKEN_COOKIE = "token";
+
+function setCookie(name: string, value: string, days = 7) {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
+}
+
+function deleteCookie(name: string) {
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+}
+
 interface RegisterData {
   email: string;
   password: string;
@@ -58,6 +69,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         access_token: string;
       }>("/auth/login", data);
       localStorage.setItem("token", access_token);
+      setCookie(TOKEN_COOKIE, access_token);
 
       const user = await api.get<User>("/auth/me");
       set({ token: access_token, user, loading: false });
@@ -71,6 +83,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     localStorage.removeItem("token");
+    deleteCookie(TOKEN_COOKIE);
     set({ token: null, user: null, error: null });
   },
 

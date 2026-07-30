@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from re import match as re_match
 
@@ -49,7 +50,7 @@ class TokenResponse(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: int
+    id: uuid.UUID
     email: str
     name: str
     is_active: bool
