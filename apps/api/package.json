@@ -1,0 +1,9 @@
+{
+  "name": "api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "lint": ".venv\\Scripts\\python.exe -m ruff check .",
+    "test": ".venv\\Scripts\\python.exe -m pytest"
+  }
+}

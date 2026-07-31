@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,7 +33,7 @@ async def create_category(db: AsyncSession, data: CategoryCreate) -> Category:
         await db.refresh(category)
     except Exception:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to create category")
+        raise HTTPException(status_code=500, detail="Failed to create category") from None
     return category
 
 
@@ -57,7 +57,7 @@ async def update_category(
         await db.refresh(category)
     except Exception:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to update category")
+        raise HTTPException(status_code=500, detail="Failed to update category") from None
     return category
 
 
@@ -68,4 +68,4 @@ async def delete_category(db: AsyncSession, category_id: uuid.UUID) -> None:
         await db.commit()
     except Exception:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to delete category")
+        raise HTTPException(status_code=500, detail="Failed to delete category") from None

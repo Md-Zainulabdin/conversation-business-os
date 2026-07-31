@@ -23,7 +23,7 @@ async def register(db: AsyncSession, data: RegisterRequest) -> User:
         await db.refresh(user)
     except Exception:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to create user")
+        raise HTTPException(status_code=500, detail="Failed to create user") from None
     return user
 
 

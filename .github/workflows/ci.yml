@@ -28,10 +28,18 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: apps/api
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
 
-      - name: Lint
-        run: npm run lint
+      - name: Lint frontend
+        run: npm run lint --workspace=web
+
+      - name: Lint backend
+        working-directory: apps/api
+        run: python -m ruff check .
+
+      - name: Run backend tests
+        working-directory: apps/api
+        run: python -m pytest
 
       - name: Build frontend
         run: npm run build

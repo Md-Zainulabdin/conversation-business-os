@@ -20,38 +20,32 @@ import { PageHeader } from "@/components/shared/page-header";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { TableToolbar, type FilterConfig, type FilterPill } from "@/components/shared/table-toolbar";
 
-interface Product {
+interface Expense {
   id: string;
-  name: string;
-  sku: string;
+  title: string;
   category: string;
-  unit: string;
-  purchase_price: number;
-  selling_price: number;
-  stock_quantity: number;
-  minimum_stock: number;
+  amount: number;
+  expense_date: string;
+  notes: string | null;
   created_at: string;
-  updated_at: string;
 }
 
-export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+const expenseCategories = ["Electricity", "Internet", "Transport", "Salary", "Miscellaneous"];
+
+export default function ExpensesPage() {
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [stockFilter, setStockFilter] = useState("all");
-  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const debouncedSearch = useDebounce(searchQuery, 200);
 
-  const fetchProducts = useCallback(async () => {
+  const fetchExpenses = useCallback(async () => {
     try {
-      const productsData = await api.get<Product[]>("/products");
-      setProducts(productsData);
-      const uniqueCategories = [...new Set(productsData.map((p) => p.category))].sort();
-      setCategories(uniqueCategories);
+      const data = await api.get<Expense[]>("/expenses");
+      setExpenses(data);
     } catch {
       // handled by api.ts
     } finally {
@@ -60,40 +54,32 @@ export default function ProductsPage() {
   }, []);
 
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    fetchExpenses();
+  }, [fetchExpenses]);
 
   const filtered = useMemo(
     () =>
-      products.filter((p) => {
+      expenses.filter((e) => {
         const q = debouncedSearch.toLowerCase();
         const matchesSearch =
           !q ||
-          p.name.toLowerCase().includes(q) ||
-          p.sku.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q);
-        const matchesCategory = categoryFilter === "all" || p.category === categoryFilter;
-        const matchesStock =
-          stockFilter === "all" ||
-          (stockFilter === "low" && p.stock_quantity <= p.minimum_stock) ||
-          (stockFilter === "in" && p.stock_quantity > p.minimum_stock);
-        return matchesSearch && matchesCategory && matchesStock;
+          e.title.toLowerCase().includes(q) ||
+          e.category.toLowerCase().includes(q) ||
+          (e.notes || "").toLowerCase().includes(q);
+        const matchesCategory = categoryFilter === "all" || e.category === categoryFilter;
+        return matchesSearch && matchesCategory;
       }),
-    [products, debouncedSearch, categoryFilter, stockFilter]
+    [expenses, debouncedSearch, categoryFilter]
   );
 
   const clearFilters = () => {
     setCategoryFilter("all");
-    setStockFilter("all");
     setSearchQuery("");
   };
 
   const filterPills: FilterPill[] = [];
   if (categoryFilter !== "all") {
     filterPills.push({ label: `Category: ${categoryFilter}`, onRemove: () => setCategoryFilter("all") });
-  }
-  if (stockFilter !== "all") {
-    filterPills.push({ label: `Stock: ${stockFilter === "low" ? "Low Stock" : "In Stock"}`, onRemove: () => setStockFilter("all") });
   }
 
   const filters: FilterConfig[] = [
@@ -102,16 +88,7 @@ export default function ProductsPage() {
       onChange: setCategoryFilter,
       options: [
         { label: "All Categories", value: "all" },
-        ...categories.map((c) => ({ label: c, value: c })),
-      ],
-    },
-    {
-      value: stockFilter,
-      onChange: setStockFilter,
-      options: [
-        { label: "All Stock", value: "all" },
-        { label: "Low Stock", value: "low" },
-        { label: "In Stock", value: "in" },
+        ...expenseCategories.map((c) => ({ label: c, value: c })),
       ],
     },
   ];
@@ -120,8 +97,8 @@ export default function ProductsPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await api.delete(`/products/${deleteTarget.id}`);
-      await fetchProducts();
+      await api.delete(`/expenses/${deleteTarget.id}`);
+      await fetchExpenses();
     } catch {
       // handled by api.ts
     }
@@ -129,71 +106,47 @@ export default function ProductsPage() {
     setDeleting(false);
   };
 
-  const columns: Column<Product>[] = [
+  const columns: Column<Expense>[] = [
     {
-      header: "Name",
-      render: (p) => (
-        <Link href={`/products/${p.id}/edit`} className="font-medium hover:text-primary transition-colors">
-          {p.name}
+      header: "Expense Title",
+      render: (e) => (
+        <Link href={`/expenses/${e.id}/edit`} className="font-medium hover:text-primary transition-colors">
+          {e.title}
         </Link>
       ),
     },
-    { header: "SKU", render: (p) => <span className="text-muted-foreground text-xs font-mono">{p.sku}</span> },
+    { header: "Category", render: (e) => e.category },
     {
-      header: "Category",
-      render: (p) => (
-        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset bg-muted text-muted-foreground ring-border">
-          {p.category}
-        </span>
-      ),
-    },
-    { header: "Unit", render: (p) => <span className="text-muted-foreground">{p.unit}</span> },
-    {
-      header: "Cost",
+      header: "Amount",
       align: "right",
-      render: (p) => (
-        <span className="tabular-nums text-muted-foreground">
-          Rs {Number(p.purchase_price).toLocaleString()}
+      render: (e) => <span className="font-medium tabular-nums">Rs {Number(e.amount).toLocaleString()}</span>,
+    },
+    {
+      header: "Date",
+      render: (e) => (
+        <span className="text-muted-foreground tabular-nums">
+          {new Date(e.expense_date).toLocaleDateString("en-US", { day: "numeric", month: "short" })}
         </span>
       ),
     },
     {
-      header: "Price",
-      align: "right",
-      render: (p) => (
-        <span className="tabular-nums font-medium">
-          Rs {Number(p.selling_price).toLocaleString()}
-        </span>
-      ),
-    },
-    {
-      header: "Stock",
-      align: "right",
-      render: (p) => {
-        const low = p.stock_quantity <= p.minimum_stock;
-        return (
-          <span
-            className={`tabular-nums font-medium ${low ? "text-destructive" : "text-foreground"}`}
-          >
-            {p.stock_quantity}
-          </span>
-        );
-      },
+      header: "Notes",
+      render: (e) => <span className="text-muted-foreground max-w-[280px] truncate block">{e.notes || "—"}</span>,
     },
     {
       header: "Action",
       align: "right",
-      render: (p) => (
+      render: (e) => (
         <div className="flex justify-end gap-3">
           <Link
-            href={`/products/${p.id}/edit`}
+            href={`/expenses/${e.id}/edit`}
             className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             <Pencil className="size-3.5" />
           </Link>
           <button
             type="button"
-            onClick={() => setDeleteTarget(p)}
+            onClick={() => setDeleteTarget(e)}
             className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
           >
             <Trash2 className="size-3.5" />
@@ -206,13 +159,13 @@ export default function ProductsPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-5">
       <PageHeader
-        title="Products & Stock"
-        description="Manage your products and stock."
+        title="Expenses"
+        description="Track operating costs such as electricity, internet, transport, and salaries."
         action={
-          <Link href="/products/new">
+          <Link href="/expenses/new">
             <Button size="sm" className="h-8 gap-1.5 text-xs">
               <Plus className="size-3.5" data-icon="inline-start" />
-              Add Product
+              Add Expense
             </Button>
           </Link>
         }
@@ -221,7 +174,6 @@ export default function ProductsPage() {
       <TableToolbar
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Search"
         filters={filters}
         filterPills={filterPills}
         onClearFilters={clearFilters}
@@ -235,20 +187,20 @@ export default function ProductsPage() {
         <DataTable
           columns={columns}
           data={filtered}
-          total={products.length}
+          total={expenses.length}
           filteredCount={filtered.length}
-          keyExtractor={(p) => p.id}
-          emptyMessage="No products yet."
-          recordLabel="products"
+          keyExtractor={(e) => e.id}
+          emptyMessage="No expenses match your criteria."
+          recordLabel="expenses"
         />
       )}
 
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Product</DialogTitle>
+            <DialogTitle>Delete Expense</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
+              Are you sure you want to delete <strong>{deleteTarget?.title}</strong>? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

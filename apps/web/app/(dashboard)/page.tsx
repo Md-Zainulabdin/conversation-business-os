@@ -1,19 +1,35 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { ArrowUpRight, Calendar } from "lucide-react";
-import initialData from "@/lib/data/dummy.json";
+import { useState, useEffect, useMemo } from "react";
+import { Calendar } from "lucide-react";
+import { api } from "@/lib/api";
 import { Transaction } from "@/types";
 import { TableToolbar, type FilterConfig, type FilterPill } from "@/components/shared/table-toolbar";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { useDebounce } from "@/lib/hooks/use-debounce";
 
+interface OverviewData {
+  total_sales: number;
+  stock_items: number;
+  active_customers: number;
+  transactions: Transaction[];
+}
+
 export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("30d");
-  const [transactions] = useState<Transaction[]>(initialData?.overview as Transaction[]);
+  const [data, setData] = useState<OverviewData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebounce(searchQuery, 200);
   const [selectedTypeFilter, setSelectedTypeFilter] = useState("all");
+
+  useEffect(() => {
+    setLoading(true);
+    api.get<OverviewData>(`/stats/overview?period=${selectedPeriod}`)
+      .then((res) => setData(res))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [selectedPeriod]);
 
   const periodOptions = [
     { id: "12m", label: "12 months" },
@@ -21,6 +37,8 @@ export default function DashboardPage() {
     { id: "7d", label: "7 days" },
     { id: "24h", label: "24 hours" },
   ];
+
+  const transactions = data?.transactions ?? [];
 
   const filteredTransactions = useMemo(
     () => transactions.filter((txn) => {
@@ -61,21 +79,20 @@ export default function DashboardPage() {
     },
   ];
 
+  const typeStyles: Record<string, string> = {
+    Sale: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+    Purchase: "bg-blue-50 text-blue-700 ring-blue-600/20",
+    Expense: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  };
+
   const columns: Column<Transaction>[] = [
     {
       header: "Type",
-      render: (t) => {
-        const styles: Record<string, string> = {
-          Sale: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-          Purchase: "bg-blue-50 text-blue-700 ring-blue-600/20",
-          Expense: "bg-amber-50 text-amber-700 ring-amber-600/20",
-        };
-        return (
-          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${styles[t.type]}`}>
-            {t.type}
-          </span>
-        );
-      },
+      render: (t) => (
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${typeStyles[t.type] ?? "bg-muted text-muted-foreground ring-border"}`}>
+          {t.type}
+        </span>
+      ),
     },
     { header: "Reference", render: (t) => <span className="font-medium">{t.reference}</span> },
     { header: "Entity", render: (t) => <span className="text-muted-foreground">{t.entity}</span> },
@@ -104,38 +121,23 @@ export default function DashboardPage() {
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Total Sales</span>
-            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
-              <ArrowUpRight className="mr-0.5 h-3 w-3" />15%
-            </span>
-          </div>
+          <span className="text-xs font-medium text-muted-foreground">Total Sales</span>
           <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-            Rs 88,820.44
+            {loading ? "—" : `Rs ${(data?.total_sales ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
           </p>
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Stock Items</span>
-            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
-              <ArrowUpRight className="mr-0.5 h-3 w-3" />6%
-            </span>
-          </div>
+          <span className="text-xs font-medium text-muted-foreground">Stock Items</span>
           <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-            112,440
+            {loading ? "—" : (data?.stock_items ?? 0).toLocaleString("en-US")}
           </p>
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Active Customers</span>
-            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
-              <ArrowUpRight className="mr-0.5 h-3 w-3" />1%
-            </span>
-          </div>
+          <span className="text-xs font-medium text-muted-foreground">Active Customers</span>
           <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-            96
+            {loading ? "—" : (data?.active_customers ?? 0).toLocaleString("en-US")}
           </p>
         </div>
       </div>
@@ -181,7 +183,7 @@ export default function DashboardPage() {
         total={transactions.length}
         filteredCount={filteredTransactions.length}
         keyExtractor={(t) => t.id}
-        emptyMessage="No transactions match your query."
+        emptyMessage={loading ? "Loading..." : "No transactions match your query."}
         recordLabel="transactions"
       />
     </div>

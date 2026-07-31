@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,7 +33,7 @@ async def create_product(db: AsyncSession, data: ProductCreate) -> Product:
         await db.refresh(product)
     except Exception:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to create product")
+        raise HTTPException(status_code=500, detail="Failed to create product") from None
     return product
 
 
@@ -60,7 +60,7 @@ async def update_product(
         await db.refresh(product)
     except Exception:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to update product")
+        raise HTTPException(status_code=500, detail="Failed to update product") from None
     return product
 
 
@@ -71,4 +71,4 @@ async def delete_product(db: AsyncSession, product_id: uuid.UUID) -> None:
         await db.commit()
     except Exception:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to delete product")
+        raise HTTPException(status_code=500, detail="Failed to delete product") from None
