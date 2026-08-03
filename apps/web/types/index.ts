@@ -81,10 +81,48 @@ export interface Transaction {
   date: string;
 }
 
-export interface SettingItem {
+export type CommandIntent = "sale" | "purchase" | "expense" | "inquiry" | "other";
+
+export interface AICommand {
+  intent: CommandIntent;
+  product_name?: string | null;
+  quantity?: number | null;
+  unit_price?: number | null;
+  total_amount?: number | null;
+  customer_name?: string | null;
+  supplier_name?: string | null;
+  title?: string | null;
+  category?: string | null;
+  notes?: string | null;
+  date?: string | null;
+}
+
+export interface AIProposalResponse {
+  command: AICommand;
+  requires_confirmation: boolean;
+  message: string;
+}
+
+export interface AIExecuteResponse {
+  message: string;
+  record: Record<string, unknown>;
+}
+
+export interface ErrorDetail {
+  title: string;
+  hint?: string;
+  options?: string[];
+}
+
+export interface ChatMessage {
   id: string;
-  setting: string;
-  value: string;
-  category: string;
-  updated_at: string;
+  role: "user" | "assistant";
+  text: string;
+  command?: AICommand | null;
+  requiresConfirmation?: boolean;
+  busy?: boolean;
+  executing?: boolean;
+  executed?: boolean;
+  error?: boolean;
+  errorDetail?: ErrorDetail;
 }

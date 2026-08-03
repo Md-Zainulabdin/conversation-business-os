@@ -1,11 +1,13 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
+  detail: unknown;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, detail?: unknown) {
     super(message);
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -31,9 +33,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       }
     }
     const body = await res.json().catch(() => ({}));
+    const detail =
+      body && typeof body === "object" && "detail" in body ? body.detail : undefined;
     throw new ApiError(
-      body.detail || res.statusText,
-      res.status
+      typeof detail === "string" ? detail : res.statusText,
+      res.status,
+      detail
     );
   }
 

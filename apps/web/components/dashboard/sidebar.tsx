@@ -14,6 +14,7 @@ import {
   Settings,
   Store,
   LogOut,
+  Bot,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ const navGroups: NavGroup[] = [
     groupLabel: "Main",
     items: [
       { title: "Overview", href: "/", icon: LayoutDashboard },
+      { title: "Assistant", href: "/assistant", icon: Bot },
     ],
   },
   {
