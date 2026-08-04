@@ -1,9 +1,11 @@
+import asyncio
 import json
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi import HTTPException
+from groq import BadRequestError
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +15,13 @@ from app.integrations.groq import get_groq_client
 from app.models.customer import Customer
 from app.models.product import Product
 from app.models.user import User
-from app.schemas.ai import AI_COMMAND_SCHEMA, AICommand, AIExecuteResponse, AIProposalResponse
+from app.schemas.ai import (
+    AI_COMMAND_SCHEMA,
+    AICommand,
+    AIExecuteResponse,
+    AIProposalResponse,
+    ProductCandidate,
+)
 from app.schemas.expense import ExpenseCreate
 from app.schemas.purchase import PurchaseCreate
 from app.schemas.sale import SaleCreate
@@ -29,6 +37,12 @@ INTENT_HELP_MESSAGE = (
     "- 'Paid 5,000 for electricity'\n"
     "- 'How much Coke stock is left?'"
 )
+
+
+class AmbiguousProduct(Exception):
+    def __init__(self, candidates: list[ProductCandidate], name: str):
+        self.candidates = candidates
+        self.name = name
 
 
 def _fmt_money(value: Decimal) -> str:
@@ -89,8 +103,10 @@ Rules:
 The user's products and customers are listed below. Users often refer to products by short or brand names.
 Map such names to the exact full name from the Products list (for example "coke" -> "Coca Cola 1.5L Bottle",
 "rice" -> "Super Basmati Rice 5kg", "oil" -> "Refined Cooking Oil 3L"). Always use the exact name from the list
-when the message refers to one of them. Only if the message clearly refers to something NOT in the lists,
-extract the name as the user wrote it.
+when the message refers to one of them. IMPORTANT: if the user's word could refer to more than one product in
+the list (for example "rice" when several rice products exist), do NOT pick one; instead leave product_name
+exactly as the user wrote it so the system can ask them which one they mean. Only if the message clearly refers
+to something NOT in the lists, extract the name as the user wrote it.
 
 Products:
 {products_text}
@@ -121,40 +137,82 @@ async def _parse_command(
     products: list[Product],
     customers: list[Customer],
 ) -> AICommand:
-    response = await client.chat.completions.create(
-        model=settings.GROQ_MODEL,
-        messages=[
-            {"role": "system", "content": _system_prompt(products, customers)},
-            {"role": "user", "content": message},
-        ],
-        response_format={
-            "type": "json_schema",
-            "json_schema": {
-                "name": "ai_command",
-                "strict": True,
-                "schema": AI_COMMAND_SCHEMA,
-            },
-        },
-        max_tokens=300,
-    )
+    for attempt in range(3):
+        try:
+            response = await client.chat.completions.create(
+                model=settings.GROQ_MODEL,
+                messages=[
+                    {"role": "system", "content": _system_prompt(products, customers)},
+                    {"role": "user", "content": message},
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "ai_command",
+                        "strict": True,
+                        "schema": AI_COMMAND_SCHEMA,
+                    },
+                },
+                max_tokens=300,
+            )
+            content = response.choices[0].message.content
+            if not content:
+                raise _RetryableParse
+            data = json.loads(content)
+            return AICommand.model_validate(data)
+        except BadRequestError as exc:
+            body = exc.body or {}
+            if body.get("code") != "json_validate_failed":
+                raise HTTPException(
+                    status_code=502,
+                    detail="AI assistant could not process that request. Please try again.",
+                ) from exc
+        except (json.JSONDecodeError, TypeError, ValidationError, _RetryableParse):
+            pass
 
-    content = response.choices[0].message.content
-    try:
-        data = json.loads(content)
-    except (json.JSONDecodeError, TypeError):
-        raise HTTPException(
-            status_code=502, detail="AI returned an invalid response"
-        ) from None
+        if attempt < 2:
+            await asyncio.sleep(0.4 * (attempt + 1))
+            continue
+        break
 
-    try:
-        return AICommand.model_validate(data)
-    except ValidationError:
-        raise HTTPException(
-            status_code=502, detail="AI response could not be validated"
-        ) from None
+    raise HTTPException(
+        status_code=502,
+        detail="AI assistant is busy right now. Please try again.",
+    ) from None
 
 
-def _match_product(products: list[Product], name: str | None) -> Product:
+class _RetryableParse(Exception):
+    pass
+
+
+def _build_candidates(products: list[Product]) -> list[ProductCandidate]:
+    return [
+        ProductCandidate(
+            id=str(p.id),
+            name=p.name,
+            unit=p.unit,
+            selling_price=p.selling_price,
+            purchase_price=p.purchase_price,
+            stock_quantity=p.stock_quantity,
+        )
+        for p in products
+    ]
+
+
+def _resolve_product(
+    products: list[Product], name: str | None, product_id: str | None = None
+) -> Product:
+    if product_id:
+        for product in products:
+            if str(product.id) == product_id:
+                return product
+        raise _structured_error(
+            status_code=404,
+            title="That product no longer exists.",
+            hint="Pick another product:",
+            options=[p.name for p in products[:15]],
+        )
+
     if not name:
         raise _structured_error(
             status_code=400,
@@ -174,13 +232,8 @@ def _match_product(products: list[Product], name: str | None) -> Product:
     if len(unique) == 1:
         return next(iter(unique.values()))
     if len(unique) > 1:
-        candidates = sorted(unique)
-        raise _structured_error(
-            status_code=400,
-            title="That matches more than one product.",
-            hint="Which one did you mean?",
-            options=candidates,
-        )
+        candidates = sorted(unique.values(), key=lambda p: p.name)
+        raise AmbiguousProduct(_build_candidates(candidates), name)
 
     available = [p.name for p in products[:15]]
     raise _structured_error(
@@ -280,7 +333,7 @@ def _answer_inquiry(
             "Please ask about a specific product, for example: "
             "'How much Coke stock is left?'"
         )
-    product = _match_product(products, command.product_name)
+    product = _resolve_product(products, command.product_name, command.product_id)
     return _stock_answer(product)
 
 
@@ -288,7 +341,8 @@ async def _propose_sale(
     command: AICommand,
     products: list[Product],
 ) -> str:
-    product = _match_product(products, command.product_name)
+    product = _resolve_product(products, command.product_name, command.product_id)
+    command.product_name = product.name
     if command.quantity is None:
         raise _structured_error(
             status_code=400,
@@ -326,7 +380,8 @@ async def _propose_sale(
 async def _propose_purchase(
     command: AICommand, products: list[Product]
 ) -> str:
-    product = _match_product(products, command.product_name)
+    product = _resolve_product(products, command.product_name, command.product_id)
+    command.product_name = product.name
     if command.quantity is None:
         raise _structured_error(
             status_code=400,
@@ -364,6 +419,58 @@ def _propose_expense(command: AICommand) -> str:
     )
 
 
+def _disambiguation_message(name: str) -> str:
+    return (
+        f"I found more than one product matching '{name}'. "
+        "Which one did you mean?"
+    )
+
+
+async def _build_proposal(
+    command: AICommand, products: list[Product]
+) -> AIProposalResponse:
+    try:
+        if command.intent == "inquiry":
+            if not command.product_name:
+                return AIProposalResponse(
+                    command=command,
+                    requires_confirmation=False,
+                    message=(
+                        "Please ask about a specific product, for example: "
+                        "'How much Coke stock is left?'"
+                    ),
+                )
+            message = _answer_inquiry(command, products)
+            return AIProposalResponse(
+                command=command,
+                requires_confirmation=False,
+                message=message,
+            )
+        if command.intent == "other":
+            return AIProposalResponse(
+                command=command,
+                requires_confirmation=False,
+                message=INTENT_HELP_MESSAGE,
+            )
+        if command.intent == "sale":
+            message = await _propose_sale(command, products)
+        elif command.intent == "purchase":
+            message = await _propose_purchase(command, products)
+        else:
+            message = _propose_expense(command)
+    except AmbiguousProduct as exc:
+        return AIProposalResponse(
+            command=command,
+            requires_confirmation=False,
+            message=_disambiguation_message(exc.name),
+            disambiguation=exc.candidates,
+        )
+
+    return AIProposalResponse(
+        command=command, requires_confirmation=True, message=message
+    )
+
+
 async def propose(
     db: AsyncSession,
     current_user: User,
@@ -379,29 +486,24 @@ async def propose(
     client = client or get_groq_client()
     products, customers = await _load_catalog(db, current_user)
     command = await _parse_command(client, message, products, customers)
+    return await _build_proposal(command, products)
 
-    if command.intent == "inquiry":
-        return AIProposalResponse(
-            command=command,
-            requires_confirmation=False,
-            message=_answer_inquiry(command, products),
-        )
-    if command.intent == "other":
-        return AIProposalResponse(
-            command=command,
-            requires_confirmation=False,
-            message=INTENT_HELP_MESSAGE,
-        )
-    if command.intent == "sale":
-        message = await _propose_sale(command, products)
-    elif command.intent == "purchase":
-        message = await _propose_purchase(command, products)
-    else:
-        message = _propose_expense(command)
 
-    return AIProposalResponse(
-        command=command, requires_confirmation=True, message=message
-    )
+async def resolve(
+    db: AsyncSession,
+    current_user: User,
+    command: AICommand,
+    product_id: str,
+) -> AIProposalResponse:
+    if not settings.GROQ_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="AI assistant is not configured (GROQ_API_KEY missing)",
+        )
+
+    products, _ = await _load_catalog(db, current_user)
+    command.product_id = product_id
+    return await _build_proposal(command, products)
 
 
 async def _execute_sale(
@@ -411,7 +513,8 @@ async def _execute_sale(
     products: list[Product],
     customers: list[Customer],
 ) -> tuple[str, dict]:
-    product = _match_product(products, command.product_name)
+    product = _resolve_product(products, command.product_name, command.product_id)
+    command.product_name = product.name
     if command.quantity is None:
         raise _structured_error(
             status_code=400,
@@ -449,7 +552,8 @@ async def _execute_purchase(
     command: AICommand,
     products: list[Product],
 ) -> tuple[str, dict]:
-    product = _match_product(products, command.product_name)
+    product = _resolve_product(products, command.product_name, command.product_id)
+    command.product_name = product.name
     if command.quantity is None:
         raise _structured_error(
             status_code=400,

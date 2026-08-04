@@ -10,16 +10,28 @@ from app.models.user import User
 from app.schemas.purchase import PurchaseCreate, PurchaseUpdate
 
 
-async def _enrich_purchase(db: AsyncSession, purchase: Purchase) -> dict:
-    product_result = await db.execute(
-        select(Product.name).where(Product.id == purchase.product_id)
-    )
-    product_name = product_result.scalar_one_or_none() or "Unknown"
+async def _enrich_purchases(db: AsyncSession, purchases: list[Purchase]) -> list[dict]:
+    if not purchases:
+        return []
 
-    return {
-        **{c.name: getattr(purchase, c.name) for c in purchase.__table__.columns},
-        "product_name": product_name,
-    }
+    product_ids = {purchase.product_id for purchase in purchases}
+    product_names: dict[uuid.UUID, str] = {}
+    product_result = await db.execute(
+        select(Product.id, Product.name).where(Product.id.in_(product_ids))
+    )
+    product_names.update(product_result.all())
+
+    return [
+        {
+            **{c.name: getattr(purchase, c.name) for c in purchase.__table__.columns},
+            "product_name": product_names.get(purchase.product_id, "Unknown"),
+        }
+        for purchase in purchases
+    ]
+
+
+async def _enrich_purchase(db: AsyncSession, purchase: Purchase) -> dict:
+    return (await _enrich_purchases(db, [purchase]))[0]
 
 
 async def list_purchases(db: AsyncSession, current_user: User) -> list[dict]:
@@ -29,7 +41,7 @@ async def list_purchases(db: AsyncSession, current_user: User) -> list[dict]:
         .order_by(Purchase.purchase_date.desc())
     )
     purchases = list(result.scalars().all())
-    return [await _enrich_purchase(db, p) for p in purchases]
+    return await _enrich_purchases(db, purchases)
 
 
 async def get_purchase(

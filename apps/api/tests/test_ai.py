@@ -39,6 +39,28 @@ def _fake_client(command: dict) -> FakeGroqClient:
     return FakeGroqClient(json.dumps(command))
 
 
+class SequencedFakeClient:
+    def __init__(self, contents: list[str | None]):
+        self.contents = contents
+        self.calls = 0
+
+    async def _create(self, **kwargs):
+        self.calls += 1
+        return SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(content=self.contents[self.calls - 1])
+                )
+            ]
+        )
+
+    @property
+    def chat(self):
+        return SimpleNamespace(
+            completions=SimpleNamespace(create=self._create)
+        )
+
+
 @pytest.fixture(autouse=True)
 def _groq_key(monkeypatch):
     monkeypatch.setattr(settings, "GROQ_API_KEY", "test-key")
@@ -260,3 +282,97 @@ async def test_propose_missing_groq_key_returns_503(monkeypatch, db):
         await ai_service.propose(db, user, "Sold 5 Coke")
 
     assert exc.value.status_code == 503
+
+
+async def test_propose_sale_ambiguous_returns_disambiguation(db):
+    user = await _make_user(db)
+    await _make_product(db, name="Super Basmati Rice 5kg", stock=100)
+    await _make_product(db, name="Golden Basmati Rice 5kg", stock=50)
+
+    client = _fake_client(
+        {
+            "intent": "sale",
+            "product_name": "rice",
+            "quantity": 20,
+            "unit_price": None,
+            "total_amount": None,
+            "customer_name": None,
+            "supplier_name": None,
+            "title": None,
+            "category": None,
+            "notes": None,
+            "date": None,
+        }
+    )
+    proposal = await ai_service.propose(db, user, "Sold 20 packs of rice", client)
+
+    assert proposal.requires_confirmation is False
+    assert proposal.disambiguation is not None
+    assert len(proposal.disambiguation) == 2
+    names = {c.name for c in proposal.disambiguation}
+    assert names == {"Golden Basmati Rice 5kg", "Super Basmati Rice 5kg"}
+    assert proposal.command.product_id is None
+    assert await _count(db, Sale) == 0
+
+
+async def test_resolve_picks_product_and_returns_confirmation(db):
+    user = await _make_user(db)
+    golden = await _make_product(db, name="Golden Basmati Rice 5kg", stock=50)
+    await _make_product(db, name="Super Basmati Rice 5kg", stock=100)
+
+    command = AICommand(intent="sale", product_name="rice", quantity=20)
+    proposal = await ai_service.resolve(db, user, command, str(golden.id))
+
+    assert proposal.requires_confirmation is True
+    assert "Golden Basmati Rice 5kg" in proposal.message
+    assert proposal.command.product_id == str(golden.id)
+    assert await _count(db, Sale) == 0
+
+
+async def test_execute_sale_uses_chosen_product_id(db):
+    user = await _make_user(db)
+    golden = await _make_product(db, name="Golden Basmati Rice 5kg", stock=50)
+    await _make_product(db, name="Super Basmati Rice 5kg", stock=100)
+
+    command = AICommand(
+        intent="sale",
+        product_name="rice",
+        product_id=str(golden.id),
+        quantity=20,
+    )
+    result = await ai_service.execute(db, user, command)
+
+    assert await _count(db, Sale) == 1
+    sale = (await db.execute(select(Sale))).scalar_one()
+    assert str(sale.product_id) == str(golden.id)
+    assert result.message.startswith("Sale recorded: 20 x Golden Basmati Rice 5kg")
+    refreshed = (
+        await db.execute(select(Product).where(Product.id == golden.id))
+    ).scalar_one()
+    assert refreshed.stock_quantity == 30
+    assert result.message.endswith("Stock left: 30 Pack.")
+
+
+async def test_parse_retries_on_empty_generation_content(db):
+    user = await _make_user(db)
+    await _make_product(db, name="Coke", stock=100)
+
+    command = {
+        "intent": "sale",
+        "product_name": "Coke",
+        "quantity": 5,
+        "unit_price": None,
+        "total_amount": None,
+        "customer_name": None,
+        "supplier_name": None,
+        "title": None,
+        "category": None,
+        "notes": None,
+        "date": None,
+    }
+    client = SequencedFakeClient([None, json.dumps(command)])
+    proposal = await ai_service.propose(db, user, "Sold 5 Coke", client)
+
+    assert client.calls == 2
+    assert proposal.requires_confirmation is True
+    assert "Sale: 5 x Coke" in proposal.message

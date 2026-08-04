@@ -11,24 +11,39 @@ from app.models.user import User
 from app.schemas.sale import SaleCreate, SaleUpdate
 
 
-async def _enrich_sale(db: AsyncSession, sale: Sale) -> dict:
+async def _enrich_sales(db: AsyncSession, sales: list[Sale]) -> list[dict]:
+    if not sales:
+        return []
+
+    product_ids = {sale.product_id for sale in sales}
+    product_names: dict[uuid.UUID, str] = {}
     product_result = await db.execute(
-        select(Product.name).where(Product.id == sale.product_id)
+        select(Product.id, Product.name).where(Product.id.in_(product_ids))
     )
-    product_name = product_result.scalar_one_or_none() or "Unknown"
+    product_names.update(product_result.all())
 
-    customer_name: str | None = None
-    if sale.customer_id:
+    customer_ids = {sale.customer_id for sale in sales if sale.customer_id}
+    customer_names: dict[uuid.UUID, str] = {}
+    if customer_ids:
         customer_result = await db.execute(
-            select(Customer.name).where(Customer.id == sale.customer_id)
+            select(Customer.id, Customer.name).where(Customer.id.in_(customer_ids))
         )
-        customer_name = customer_result.scalar_one_or_none()
+        customer_names.update(customer_result.all())
 
-    return {
-        **{c.name: getattr(sale, c.name) for c in sale.__table__.columns},
-        "product_name": product_name,
-        "customer_name": customer_name,
-    }
+    return [
+        {
+            **{c.name: getattr(sale, c.name) for c in sale.__table__.columns},
+            "product_name": product_names.get(sale.product_id, "Unknown"),
+            "customer_name": (
+                customer_names.get(sale.customer_id) if sale.customer_id else None
+            ),
+        }
+        for sale in sales
+    ]
+
+
+async def _enrich_sale(db: AsyncSession, sale: Sale) -> dict:
+    return (await _enrich_sales(db, [sale]))[0]
 
 
 async def list_sales(db: AsyncSession, current_user: User) -> list[dict]:
@@ -38,7 +53,7 @@ async def list_sales(db: AsyncSession, current_user: User) -> list[dict]:
         .order_by(Sale.sale_date.desc())
     )
     sales = list(result.scalars().all())
-    return [await _enrich_sale(db, s) for s in sales]
+    return await _enrich_sales(db, sales)
 
 
 async def get_sale(

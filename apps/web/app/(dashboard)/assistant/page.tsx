@@ -19,6 +19,7 @@ import type {
 import { CommandCard } from "@/components/assistant/command-card";
 import { RecordSuccess } from "@/components/assistant/record-success";
 import { ErrorNotice } from "@/components/assistant/error-notice";
+import { ProductSelect } from "@/components/assistant/product-select";
 import { INTENT_LABEL } from "@/lib/format";
 
 const SUGGESTIONS = [
@@ -100,6 +101,7 @@ export default function AssistantPage() {
         text: proposal.message,
         command: proposal.command,
         requiresConfirmation: proposal.requires_confirmation,
+        disambiguation: proposal.disambiguation ?? null,
       };
 
       setMessages((prev) =>
@@ -167,6 +169,54 @@ export default function AssistantPage() {
     }
   }
 
+  async function resolveCommand(
+    id: string,
+    command: AICommand,
+    productId: string
+  ) {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, busy: true } : m))
+    );
+
+    try {
+      const proposal = await api.post<AIProposalResponse>(
+        "/ai/commands/resolve",
+        { command, product_id: productId }
+      );
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === id
+            ? {
+                ...m,
+                text: proposal.message,
+                command: proposal.command,
+                requiresConfirmation: proposal.requires_confirmation,
+                disambiguation: proposal.disambiguation ?? null,
+                busy: false,
+              }
+            : m
+        )
+      );
+    } catch (err) {
+      const errorDetail = parseErrorDetail(err);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === id
+            ? {
+                ...m,
+                text: errorDetail.title,
+                requiresConfirmation: false,
+                disambiguation: null,
+                error: true,
+                errorDetail,
+                busy: false,
+              }
+            : m
+        )
+      );
+    }
+  }
+
   function cancelCommand(id: string) {
     setMessages((prev) =>
       prev.map((m) =>
@@ -183,6 +233,23 @@ export default function AssistantPage() {
         <div className="flex justify-end">
           <div className="max-w-full rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">
             <p className="whitespace-pre-line">{m.text}</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (m.disambiguation && m.disambiguation.length > 0 && m.command) {
+      return (
+        <div className="flex">
+          <div className="w-full max-w-2xl">
+            <ProductSelect
+              message={m.text}
+              candidates={m.disambiguation}
+              busy={m.busy}
+              onSelect={(productId) =>
+                resolveCommand(m.id, m.command!, productId)
+              }
+            />
           </div>
         </div>
       );

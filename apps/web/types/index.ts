@@ -83,9 +83,19 @@ export interface Transaction {
 
 export type CommandIntent = "sale" | "purchase" | "expense" | "inquiry" | "other";
 
+export interface ProductCandidate {
+  id: string;
+  name: string;
+  unit: string;
+  selling_price: number;
+  purchase_price: number;
+  stock_quantity: number;
+}
+
 export interface AICommand {
   intent: CommandIntent;
   product_name?: string | null;
+  product_id?: string | null;
   quantity?: number | null;
   unit_price?: number | null;
   total_amount?: number | null;
@@ -101,6 +111,7 @@ export interface AIProposalResponse {
   command: AICommand;
   requires_confirmation: boolean;
   message: string;
+  disambiguation?: ProductCandidate[] | null;
 }
 
 export interface AIExecuteResponse {
@@ -120,6 +131,7 @@ export interface ChatMessage {
   text: string;
   command?: AICommand | null;
   requiresConfirmation?: boolean;
+  disambiguation?: ProductCandidate[] | null;
   busy?: boolean;
   executing?: boolean;
   executed?: boolean;

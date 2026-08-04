@@ -49,9 +49,19 @@ AI_COMMAND_SCHEMA: dict = {
 }
 
 
+class ProductCandidate(BaseModel):
+    id: str
+    name: str
+    unit: str
+    selling_price: Decimal
+    purchase_price: Decimal
+    stock_quantity: int
+
+
 class AICommand(BaseModel):
     intent: Intent
     product_name: str | None = None
+    product_id: str | None = None
     quantity: int | None = None
     unit_price: Decimal | None = None
     total_amount: Decimal | None = None
@@ -88,10 +98,16 @@ class AIProposalResponse(BaseModel):
     command: AICommand
     requires_confirmation: bool
     message: str
+    disambiguation: list[ProductCandidate] | None = None
 
 
 class AIExecuteRequest(BaseModel):
     command: AICommand
+
+
+class AIResolveRequest(BaseModel):
+    command: AICommand
+    product_id: str
 
 
 class AIExecuteResponse(BaseModel):
