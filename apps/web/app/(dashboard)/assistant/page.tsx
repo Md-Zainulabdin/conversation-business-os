@@ -7,7 +7,6 @@ import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
 
 import type {
   AICommand,
@@ -28,6 +27,14 @@ const SUGGESTIONS = [
   "Paid 5,000 for electricity",
   "How much Coke stock is left?",
 ];
+
+const CANCEL_WORDS = new Set([
+  "cancel",
+  "cancel it",
+  "never mind",
+  "nevermind",
+  "stop",
+]);
 
 function parseErrorDetail(err: unknown): ErrorDetail {
   if (err instanceof ApiError && err.detail && typeof err.detail === "object") {
@@ -61,6 +68,7 @@ export default function AssistantPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [conversationId] = useState<string>(() => nextId());
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -73,6 +81,38 @@ export default function AssistantPage() {
   async function sendMessage(text: string) {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
+
+    const hasPending = messages.some(
+      (m) =>
+        m.role === "assistant" &&
+        m.requiresConfirmation &&
+        m.command &&
+        !m.executed &&
+        !m.executing
+    );
+    const normalizedCancel = trimmed.toLowerCase().replace(/[.!?]+$/, "").trim();
+    if (hasPending && CANCEL_WORDS.has(normalizedCancel)) {
+      setMessages((prev) => [
+        ...prev.map((m) =>
+          m.requiresConfirmation && m.command && !m.executed
+            ? {
+                ...m,
+                requiresConfirmation: false,
+                busy: false,
+                executing: false,
+                cancelled: true,
+              }
+            : m
+        ),
+        {
+          id: nextId(),
+          role: "assistant",
+          text: "Cancelled. Nothing was recorded.",
+        },
+      ]);
+      setInput("");
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: nextId(),
@@ -93,6 +133,7 @@ export default function AssistantPage() {
     try {
       const proposal = await api.post<AIProposalResponse>("/ai/commands", {
         message: trimmed,
+        conversation_id: conversationId,
       });
 
       const assistantMessage: ChatMessage = {
@@ -102,6 +143,7 @@ export default function AssistantPage() {
         command: proposal.command,
         requiresConfirmation: proposal.requires_confirmation,
         disambiguation: proposal.disambiguation ?? null,
+        issues: proposal.issues ?? null,
       };
 
       setMessages((prev) =>
@@ -134,6 +176,7 @@ export default function AssistantPage() {
     try {
       const result = await api.post<AIExecuteResponse>("/ai/commands/execute", {
         command,
+        idempotency_key: id,
       });
       setMessages((prev) =>
         prev.map((m) =>
@@ -192,6 +235,7 @@ export default function AssistantPage() {
                 command: proposal.command,
                 requiresConfirmation: proposal.requires_confirmation,
                 disambiguation: proposal.disambiguation ?? null,
+                issues: proposal.issues ?? null,
                 busy: false,
               }
             : m
@@ -221,7 +265,13 @@ export default function AssistantPage() {
     setMessages((prev) =>
       prev.map((m) =>
         m.id === id
-          ? { ...m, requiresConfirmation: false, busy: false, executing: false }
+          ? {
+              ...m,
+              requiresConfirmation: false,
+              busy: false,
+              executing: false,
+              cancelled: true,
+            }
           : m
       )
     );
@@ -230,103 +280,103 @@ export default function AssistantPage() {
   function renderMessage(m: ChatMessage) {
     if (m.role === "user") {
       return (
-        <div className="flex justify-end">
-          <div className="max-w-full rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">
-            <p className="whitespace-pre-line">{m.text}</p>
-          </div>
+        <div className="max-w-full rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">
+          <p className="whitespace-pre-line">{m.text}</p>
         </div>
       );
     }
 
     if (m.disambiguation && m.disambiguation.length > 0 && m.command) {
       return (
-        <div className="flex">
-          <div className="w-full max-w-2xl">
-            <ProductSelect
-              message={m.text}
-              candidates={m.disambiguation}
-              busy={m.busy}
-              onSelect={(productId) =>
-                resolveCommand(m.id, m.command!, productId)
-              }
-            />
-          </div>
-        </div>
+        <ProductSelect
+          message={m.text}
+          candidates={m.disambiguation}
+          busy={m.busy}
+          onSelect={(productId) =>
+            resolveCommand(m.id, m.command!, productId)
+          }
+        />
       );
     }
 
     if (m.busy) {
       return (
-        <div className="flex">
-          <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm text-muted-foreground">
-            <Spinner className="size-3.5" />
-            <span>Thinking...</span>
-          </div>
+        <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm text-muted-foreground">
+          <Spinner className="size-3.5" />
+          <span>Thinking...</span>
         </div>
       );
     }
 
     if (m.executing && m.command) {
       return (
-        <div className="flex">
-          <div className="w-full max-w-2xl">
-            <CommandCard
-              command={m.command}
-              busy
-              onExecute={() => executeCommand(m.id, m.command!)}
-              onCancel={() => cancelCommand(m.id)}
-            />
-          </div>
-        </div>
+        <CommandCard
+          command={m.command}
+          issues={m.issues}
+          busy
+          onExecute={() => executeCommand(m.id, m.command!)}
+          onCancel={() => cancelCommand(m.id)}
+        />
       );
     }
 
     if (m.executed && m.command) {
       return (
-        <div className="flex">
-          <div className="w-full max-w-2xl">
-            <RecordSuccess
-              label={INTENT_LABEL[m.command.intent]}
-              message={m.text}
-            />
-          </div>
-        </div>
+        <RecordSuccess
+          label={INTENT_LABEL[m.command.intent]}
+          command={m.command}
+        />
+      );
+    }
+
+    if (m.cancelled && m.command) {
+      return (
+        <CommandCard
+          command={m.command}
+          issues={m.issues}
+          cancelled
+          onExecute={() => executeCommand(m.id, m.command!)}
+          onCancel={() => cancelCommand(m.id)}
+        />
       );
     }
 
     if (m.error) {
       return (
-        <div className="flex">
-          <div className="w-full max-w-2xl">
-            <ErrorNotice
-              title={m.errorDetail?.title || m.text}
-              hint={m.errorDetail?.hint}
-              options={m.errorDetail?.options}
-            />
-          </div>
-        </div>
+        <ErrorNotice
+          title={m.errorDetail?.title || m.text}
+          hint={m.errorDetail?.hint}
+          options={m.errorDetail?.options}
+        />
       );
     }
 
     if (m.requiresConfirmation && m.command) {
       return (
-        <div className="flex">
-          <div className="w-full max-w-2xl">
-            <CommandCard
-              command={m.command}
-              onExecute={() => executeCommand(m.id, m.command!)}
-              onCancel={() => cancelCommand(m.id)}
-            />
-          </div>
-        </div>
+        <CommandCard
+          command={m.command}
+          issues={m.issues}
+          onExecute={() => executeCommand(m.id, m.command!)}
+          onCancel={() => cancelCommand(m.id)}
+        />
+      );
+    }
+
+    if (m.command && m.issues && m.issues.length > 0) {
+      return (
+        <CommandCard
+          command={m.command}
+          issues={m.issues}
+          blocked
+          onExecute={() => executeCommand(m.id, m.command!)}
+          onCancel={() => cancelCommand(m.id)}
+        />
       );
     }
 
     return (
-      <div className="flex">
-        <div className="max-w-[80%] rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground">
-          <p className="whitespace-pre-line">{m.text}</p>
-        </div>
+      <div className="max-w-[80%] rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground">
+        <p className="whitespace-pre-line">{m.text}</p>
       </div>
     );
   }
@@ -338,7 +388,7 @@ export default function AssistantPage() {
           AI Assistant
         </h1>
         <p className="mt-0.5 text-[13px] text-muted-foreground">
-          Record sales, purchases and expenses — or just ask about your stock.
+          Record sales, purchases and expenses, or just ask about your stock.
         </p>
       </div>
 
@@ -375,7 +425,7 @@ export default function AssistantPage() {
         )}
 
         {messages.map((m) => (
-          <div key={m.id} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
+          <div key={m.id} className={m.role === "user" ? "flex justify-end" : "w-full"}>
             {renderMessage(m)}
           </div>
         ))}

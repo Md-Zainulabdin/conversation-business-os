@@ -21,23 +21,31 @@ def _product_id():
 
 def test_sale_accepts_valid_payload():
     sale = SaleCreate(
-        product_id=_product_id(),
-        quantity=3,
-        unit_price=Decimal("100"),
-        total_amount=Decimal("300"),
+        items=[
+            {
+                "product_id": _product_id(),
+                "quantity": 3,
+                "unit_price": Decimal("100"),
+                "total_amount": Decimal("300"),
+            }
+        ],
         sale_date=_now(),
     )
-    assert sale.quantity == 3
-    assert sale.total_amount == Decimal("300")
+    assert sale.items[0].quantity == 3
+    assert sale.items[0].total_amount == Decimal("300")
 
 
 def test_sale_rejects_zero_quantity():
     with pytest.raises(ValidationError):
         SaleCreate(
-            product_id=_product_id(),
-            quantity=0,
-            unit_price=Decimal("100"),
-            total_amount=Decimal("300"),
+            items=[
+                {
+                    "product_id": _product_id(),
+                    "quantity": 0,
+                    "unit_price": Decimal("100"),
+                    "total_amount": Decimal("300"),
+                }
+            ],
             sale_date=_now(),
         )
 
@@ -45,22 +53,35 @@ def test_sale_rejects_zero_quantity():
 def test_sale_rejects_negative_price():
     with pytest.raises(ValidationError):
         SaleCreate(
-            product_id=_product_id(),
-            quantity=2,
-            unit_price=Decimal("-1"),
-            total_amount=Decimal("300"),
+            items=[
+                {
+                    "product_id": _product_id(),
+                    "quantity": 2,
+                    "unit_price": Decimal("-1"),
+                    "total_amount": Decimal("300"),
+                }
+            ],
             sale_date=_now(),
         )
+
+
+def test_sale_rejects_empty_items():
+    with pytest.raises(ValidationError):
+        SaleCreate(items=[], sale_date=_now())
 
 
 def test_purchase_rejects_blank_supplier():
     with pytest.raises(ValidationError):
         PurchaseCreate(
-            product_id=_product_id(),
             supplier_name="   ",
-            quantity=5,
-            purchase_price=Decimal("10"),
-            total_amount=Decimal("50"),
+            items=[
+                {
+                    "product_id": _product_id(),
+                    "quantity": 5,
+                    "purchase_price": Decimal("10"),
+                    "total_amount": Decimal("50"),
+                }
+            ],
             purchase_date=_now(),
         )
 
@@ -68,11 +89,15 @@ def test_purchase_rejects_blank_supplier():
 def test_purchase_rejects_zero_quantity():
     with pytest.raises(ValidationError):
         PurchaseCreate(
-            product_id=_product_id(),
             supplier_name="Supplier",
-            quantity=0,
-            purchase_price=Decimal("10"),
-            total_amount=Decimal("50"),
+            items=[
+                {
+                    "product_id": _product_id(),
+                    "quantity": 0,
+                    "purchase_price": Decimal("10"),
+                    "total_amount": Decimal("50"),
+                }
+            ],
             purchase_date=_now(),
         )
 

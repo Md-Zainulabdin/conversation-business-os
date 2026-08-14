@@ -131,7 +131,7 @@ export default function ExpensesPage() {
     },
     {
       header: "Notes",
-      render: (e) => <span className="text-muted-foreground max-w-[280px] truncate block">{e.notes || "—"}</span>,
+      render: (e) => <span className="text-muted-foreground max-w-[280px] truncate block">{e.notes || "No notes"}</span>,
     },
     {
       header: "Action",

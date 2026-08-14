@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -18,22 +18,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import type { Product, Purchase } from "@/types";
 
-interface Product {
-  id: string;
-  name: string;
-  purchase_price: number;
+interface LineItem {
+  key: number;
+  productId: string;
+  quantity: string;
+  unitPrice: string;
 }
 
-interface PurchaseData {
-  id: string;
-  product_id: string;
-  supplier_name: string;
-  quantity: number;
-  purchase_price: number;
-  purchase_date: string;
-  notes: string | null;
-}
+let lineKey = 0;
 
 export default function EditPurchasePage() {
   const router = useRouter();
@@ -41,10 +35,8 @@ export default function EditPurchasePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [productId, setProductId] = useState("");
   const [supplierName, setSupplierName] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [purchasePrice, setPurchasePrice] = useState("");
+  const [items, setItems] = useState<LineItem[]>([]);
   const [purchaseDate, setPurchaseDate] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -53,14 +45,19 @@ export default function EditPurchasePage() {
   useEffect(() => {
     Promise.all([
       api.get<Product[]>("/products"),
-      api.get<PurchaseData>(`/purchases/${params.id}`),
+      api.get<Purchase>(`/purchases/${params.id}`),
     ])
       .then(([prods, purchase]) => {
         setProducts(prods);
-        setProductId(purchase.product_id);
         setSupplierName(purchase.supplier_name);
-        setQuantity(String(purchase.quantity));
-        setPurchasePrice(String(purchase.purchase_price));
+        setItems(
+          purchase.items.map((item) => ({
+            key: ++lineKey,
+            productId: item.product_id,
+            quantity: String(item.quantity),
+            unitPrice: String(item.purchase_price),
+          }))
+        );
         setPurchaseDate(purchase.purchase_date.slice(0, 16));
         setNotes(purchase.notes || "");
       })
@@ -68,42 +65,74 @@ export default function EditPurchasePage() {
       .finally(() => setLoading(false));
   }, [params.id, router]);
 
-  const total = useMemo(() => {
-    const qty = parseInt(quantity) || 0;
-    const price = parseFloat(purchasePrice) || 0;
-    return qty * price;
-  }, [quantity, purchasePrice]);
+  const updateItem = (key: number, patch: Partial<LineItem>) => {
+    setItems((prev) =>
+      prev.map((item) => (item.key === key ? { ...item, ...patch } : item))
+    );
+  };
+
+  const addItem = () => {
+    setItems((prev) => [
+      ...prev,
+      { key: ++lineKey, productId: "", quantity: "", unitPrice: "" },
+    ]);
+  };
+
+  const removeItem = (key: number) => {
+    setItems((prev) =>
+      prev.length > 1 ? prev.filter((item) => item.key !== key) : prev
+    );
+  };
+
+  const grandTotal = items.reduce((sum, item) => {
+    const qty = parseInt(item.quantity) || 0;
+    const price = parseFloat(item.unitPrice) || 0;
+    return sum + qty * price;
+  }, 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!productId) {
-      setError("Please select a product");
-      return;
-    }
     if (!supplierName.trim()) {
       setError("Supplier name is required");
       return;
     }
-    if (!quantity || parseInt(quantity) <= 0) {
-      setError("Quantity must be greater than 0");
+    const validItems = items.filter((item) => item.productId && item.quantity);
+    if (validItems.length === 0) {
+      setError("Add at least one product with a quantity");
       return;
     }
+    for (const item of validItems) {
+      const qty = parseInt(item.quantity);
+      if (!qty || qty <= 0) {
+        setError("Quantity must be greater than 0");
+        return;
+      }
+    }
+
     setSaving(true);
     setError(null);
     try {
       await api.put(`/purchases/${params.id}`, {
-        product_id: productId,
         supplier_name: supplierName,
-        quantity: parseInt(quantity),
-        purchase_price: purchasePrice || "0",
-        total_amount: total,
-        purchase_date: purchaseDate ? new Date(purchaseDate).toISOString() : new Date().toISOString(),
+        items: validItems.map((item) => {
+          const qty = parseInt(item.quantity);
+          const unitPrice = parseFloat(item.unitPrice) || 0;
+          return {
+            product_id: item.productId,
+            quantity: qty,
+            purchase_price: unitPrice,
+            total_amount: qty * unitPrice,
+          };
+        }),
+        purchase_date: purchaseDate
+          ? new Date(purchaseDate).toISOString()
+          : new Date().toISOString(),
         notes: notes || null,
       });
       router.push("/purchases");
       return;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update purchase");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update purchase");
     }
     setSaving(false);
   };
@@ -118,7 +147,7 @@ export default function EditPurchasePage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="max-w-2xl">
+      <div className="max-w-3xl">
         <Link
           href="/purchases"
           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -136,20 +165,6 @@ export default function EditPurchasePage() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-sm font-medium">Product</Label>
-            <Select value={productId} onValueChange={setProductId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select product" />
-              </SelectTrigger>
-              <SelectContent>
-                {products.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
             <Label htmlFor="supplier_name" className="text-sm font-medium">Supplier Name</Label>
             <Input
               id="supplier_name"
@@ -158,28 +173,93 @@ export default function EditPurchasePage() {
             />
           </div>
 
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Products</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addItem}
+              >
+                <Plus className="size-3.5" />
+                Add Product
+              </Button>
+            </div>
+
+            {items.map((item, index) => {
+              const qty = parseInt(item.quantity) || 0;
+              const price = parseFloat(item.unitPrice) || 0;
+              return (
+                <div
+                  key={item.key}
+                  className="rounded-lg border border-border bg-card p-3"
+                >
+                  <div className="grid grid-cols-[1fr] gap-2 sm:grid-cols-[2fr_1fr_1fr_1fr_auto]">
+                    <Select
+                      value={item.productId}
+                      onValueChange={(id) =>
+                        updateItem(item.key, { productId: id })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select product" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {products.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="Qty"
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateItem(item.key, { quantity: e.target.value })
+                      }
+                    />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Unit price"
+                      value={item.unitPrice}
+                      onChange={(e) =>
+                        updateItem(item.key, { unitPrice: e.target.value })
+                      }
+                    />
+                    <div className="flex h-10 items-center rounded-md border border-border bg-background px-3 text-sm font-medium tabular-nums text-foreground">
+                      Rs {(qty * price).toLocaleString()}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => removeItem(item.key)}
+                      aria-label={`Remove product ${index + 1}`}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm">
+              <span className="font-medium text-muted-foreground">Grand Total</span>
+              <span className="font-semibold tabular-nums text-foreground">
+                Rs {grandTotal.toLocaleString()}
+              </span>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="quantity" className="text-sm font-medium">Quantity</Label>
-              <Input
-                id="quantity"
-                type="number"
-                min="1"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="purchase_price" className="text-sm font-medium">Purchase Price / Unit (PKR)</Label>
-              <Input
-                id="purchase_price"
-                type="number"
-                step="0.01"
-                min="0"
-                value={purchasePrice}
-                onChange={(e) => setPurchasePrice(e.target.value)}
-              />
-            </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="purchase_date" className="text-sm font-medium">Purchase Date</Label>
               <Input
@@ -188,12 +268,6 @@ export default function EditPurchasePage() {
                 value={purchaseDate}
                 onChange={(e) => setPurchaseDate(e.target.value)}
               />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-sm font-medium">Total Amount</Label>
-              <div className="flex h-10 items-center rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground">
-                Rs {total.toLocaleString()}
-              </div>
             </div>
           </div>
 

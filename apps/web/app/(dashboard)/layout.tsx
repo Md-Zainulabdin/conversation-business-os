@@ -13,7 +13,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { token } = useAuthStore();
+  const { token, user, fetchMe } = useAuthStore();
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -21,6 +21,12 @@ export default function DashboardLayout({
   useEffect(() => {
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (hydrated && token && !user) {
+      fetchMe();
+    }
+  }, [hydrated, token, user, fetchMe]);
 
   useEffect(() => {
     if (hydrated && !token) {

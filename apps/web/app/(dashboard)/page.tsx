@@ -123,21 +123,21 @@ export default function DashboardPage() {
         <div className="rounded-lg border border-border bg-card p-4">
           <span className="text-xs font-medium text-muted-foreground">Total Sales</span>
           <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-            {loading ? "—" : `Rs ${(data?.total_sales ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
+            {loading ? "…" : `Rs ${(data?.total_sales ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
           </p>
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4">
           <span className="text-xs font-medium text-muted-foreground">Stock Items</span>
           <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-            {loading ? "—" : (data?.stock_items ?? 0).toLocaleString("en-US")}
+            {loading ? "…" : (data?.stock_items ?? 0).toLocaleString("en-US")}
           </p>
         </div>
 
         <div className="rounded-lg border border-border bg-card p-4">
           <span className="text-xs font-medium text-muted-foreground">Active Customers</span>
           <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-            {loading ? "—" : (data?.active_customers ?? 0).toLocaleString("en-US")}
+            {loading ? "…" : (data?.active_customers ?? 0).toLocaleString("en-US")}
           </p>
         </div>
       </div>
@@ -165,7 +165,7 @@ export default function DashboardPage() {
           className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           <Calendar className="h-3.5 w-3.5" />
-          <span>1 Jan 2026 – 31 Dec 2026</span>
+          <span>1 Jan 2026 - 31 Dec 2026</span>
         </button>
       </div>
 

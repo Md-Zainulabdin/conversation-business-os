@@ -39,7 +39,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # Converting UUID back to Integer is destructive.
-    # This exists for dev rollback only — do not run on production.
+    # This exists for dev rollback only; do not run on production.
 
     # --- users table ---
     op.add_column("users", sa.Column("id_int", sa.Integer(), nullable=True))

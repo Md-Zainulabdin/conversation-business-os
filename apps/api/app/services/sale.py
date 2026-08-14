@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -6,21 +7,50 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.customer import Customer
 from app.models.product import Product
-from app.models.sale import Sale
+from app.models.sale import Sale, SaleItem
 from app.models.user import User
 from app.schemas.sale import SaleCreate, SaleUpdate
+
+
+def _sale_dict(sale: Sale, product_names: dict, customer_names: dict) -> dict:
+    return {
+        "id": sale.id,
+        "customer_id": sale.customer_id,
+        "customer_name": (
+            customer_names.get(sale.customer_id) if sale.customer_id else None
+        ),
+        "total_amount": sale.total_amount,
+        "sale_date": sale.sale_date,
+        "notes": sale.notes,
+        "created_at": sale.created_at,
+        "updated_at": sale.updated_at,
+        "items": [
+            {
+                "id": item.id,
+                "product_id": item.product_id,
+                "product_name": product_names.get(item.product_id, "Unknown"),
+                "quantity": item.quantity,
+                "unit_price": item.unit_price,
+                "total_amount": item.total_amount,
+            }
+            for item in sale.items
+        ],
+    }
 
 
 async def _enrich_sales(db: AsyncSession, sales: list[Sale]) -> list[dict]:
     if not sales:
         return []
 
-    product_ids = {sale.product_id for sale in sales}
+    product_ids = {
+        item.product_id for sale in sales for item in sale.items
+    }
     product_names: dict[uuid.UUID, str] = {}
-    product_result = await db.execute(
-        select(Product.id, Product.name).where(Product.id.in_(product_ids))
-    )
-    product_names.update(product_result.all())
+    if product_ids:
+        product_result = await db.execute(
+            select(Product.id, Product.name).where(Product.id.in_(product_ids))
+        )
+        product_names.update(product_result.all())
 
     customer_ids = {sale.customer_id for sale in sales if sale.customer_id}
     customer_names: dict[uuid.UUID, str] = {}
@@ -30,20 +60,44 @@ async def _enrich_sales(db: AsyncSession, sales: list[Sale]) -> list[dict]:
         )
         customer_names.update(customer_result.all())
 
-    return [
-        {
-            **{c.name: getattr(sale, c.name) for c in sale.__table__.columns},
-            "product_name": product_names.get(sale.product_id, "Unknown"),
-            "customer_name": (
-                customer_names.get(sale.customer_id) if sale.customer_id else None
-            ),
-        }
-        for sale in sales
-    ]
+    return [_sale_dict(sale, product_names, customer_names) for sale in sales]
 
 
 async def _enrich_sale(db: AsyncSession, sale: Sale) -> dict:
     return (await _enrich_sales(db, [sale]))[0]
+
+
+async def _load_products(
+    db: AsyncSession, product_ids: set[uuid.UUID], current_user: User
+) -> dict[uuid.UUID, Product]:
+    if not product_ids:
+        return {}
+    result = await db.execute(
+        select(Product)
+        .where(Product.id.in_(product_ids), Product.user_id == current_user.id)
+        .with_for_update()
+    )
+    return {p.id: p for p in result.scalars().all()}
+
+
+async def _validate_sale_items(
+    db: AsyncSession, items: list, current_user: User
+) -> dict[uuid.UUID, Product]:
+    product_ids = {item.product_id for item in items}
+    products = await _load_products(db, product_ids, current_user)
+    for item in items:
+        product = products.get(item.product_id)
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        if product.stock_quantity < item.quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Insufficient stock for {product.name}. "
+                    f"Available: {product.stock_quantity}, requested: {item.quantity}"
+                ),
+            )
+    return products
 
 
 async def list_sales(db: AsyncSession, current_user: User) -> list[dict]:
@@ -68,25 +122,51 @@ async def get_sale(
     return await _enrich_sale(db, sale)
 
 
+async def _validate_customer(
+    db: AsyncSession, customer_id: uuid.UUID | None, current_user: User
+) -> None:
+    if customer_id is None:
+        return
+    result = await db.execute(
+        select(Customer.id).where(
+            Customer.id == customer_id, Customer.user_id == current_user.id
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+
 async def create_sale(
     db: AsyncSession, data: SaleCreate, current_user: User
 ) -> dict:
-    product = await db.execute(
-        select(Product).where(Product.id == data.product_id)
+    products = await _validate_sale_items(db, data.items, current_user)
+    await _validate_customer(db, data.customer_id, current_user)
+
+    total_amount = sum(
+        (item.total_amount for item in data.items), Decimal("0")
     )
-    product = product.scalar_one_or_none()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    if product.stock_quantity < data.quantity:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient stock. Available: {product.stock_quantity}, requested: {data.quantity}",
-        )
-
-    sale = Sale(**data.model_dump(), user_id=current_user.id)
-    product.stock_quantity -= data.quantity
-
+    sale = Sale(
+        customer_id=data.customer_id,
+        total_amount=total_amount,
+        sale_date=data.sale_date,
+        notes=data.notes,
+        user_id=current_user.id,
+    )
     db.add(sale)
+    await db.flush()
+
+    for item in data.items:
+        db.add(
+            SaleItem(
+                sale_id=sale.id,
+                product_id=item.product_id,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                total_amount=item.total_amount,
+            )
+        )
+        products[item.product_id].stock_quantity -= item.quantity
+
     try:
         await db.commit()
         await db.refresh(sale)
@@ -106,46 +186,48 @@ async def update_sale(
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
 
-    old_product = await db.execute(
-        select(Product).where(Product.id == sale.product_id)
-    )
-    old_product = old_product.scalar_one_or_none()
+    if data.customer_id is not None:
+        await _validate_customer(db, data.customer_id, current_user)
 
-    new_quantity = data.quantity if data.quantity is not None else sale.quantity
-    new_product_id = (
-        data.product_id if data.product_id is not None else sale.product_id
-    )
-    product_changed = new_product_id != sale.product_id
-
-    if product_changed:
-        if old_product:
-            old_product.stock_quantity += sale.quantity
-
-        new_product = await db.execute(
-            select(Product).where(Product.id == new_product_id)
-        )
-        new_product = new_product.scalar_one_or_none()
-        if not new_product:
-            raise HTTPException(status_code=404, detail="Product not found")
-        if new_product.stock_quantity < new_quantity:
+    if data.items is not None:
+        if not data.items:
             raise HTTPException(
-                status_code=400,
-                detail=f"Insufficient stock. Available: {new_product.stock_quantity}, requested: {new_quantity}",
+                status_code=400, detail="A sale needs at least one product"
             )
-        new_product.stock_quantity -= new_quantity
-    else:
-        quantity_diff = new_quantity - sale.quantity
-        if quantity_diff > 0 and old_product:
-            if old_product.stock_quantity < quantity_diff:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Insufficient stock. Available: {old_product.stock_quantity}, need extra: {quantity_diff}",
-                )
-            old_product.stock_quantity -= quantity_diff
-        elif quantity_diff < 0 and old_product:
-            old_product.stock_quantity += abs(quantity_diff)
 
-    update_data = data.model_dump(exclude_unset=True)
+        old_stock: dict[uuid.UUID, int] = {}
+        for item in sale.items:
+            old_stock[item.product_id] = (
+                old_stock.get(item.product_id, 0) + item.quantity
+            )
+        old_products = await _load_products(db, set(old_stock), current_user)
+        for product_id, qty in old_stock.items():
+            product = old_products.get(product_id)
+            if product:
+                product.stock_quantity += qty
+
+        products = await _validate_sale_items(db, data.items, current_user)
+        for item in data.items:
+            products[item.product_id].stock_quantity -= item.quantity
+
+        for item in list(sale.items):
+            await db.delete(item)
+        await db.flush()
+        for item in data.items:
+            db.add(
+                SaleItem(
+                    sale_id=sale.id,
+                    product_id=item.product_id,
+                    quantity=item.quantity,
+                    unit_price=item.unit_price,
+                    total_amount=item.total_amount,
+                )
+            )
+        sale.total_amount = sum(
+            (item.total_amount for item in data.items), Decimal("0")
+        )
+
+    update_data = data.model_dump(exclude_unset=True, exclude={"items"})
     for field, value in update_data.items():
         setattr(sale, field, value)
 
@@ -168,10 +250,14 @@ async def delete_sale(
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
 
-    product = await db.execute(select(Product).where(Product.id == sale.product_id))
-    product = product.scalar_one_or_none()
-    if product:
-        product.stock_quantity += sale.quantity
+    stock: dict[uuid.UUID, int] = {}
+    for item in sale.items:
+        stock[item.product_id] = stock.get(item.product_id, 0) + item.quantity
+    products = await _load_products(db, set(stock), current_user)
+    for product_id, qty in stock.items():
+        product = products.get(product_id)
+        if product:
+            product.stock_quantity += qty
 
     try:
         await db.delete(sale)

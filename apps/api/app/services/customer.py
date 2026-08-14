@@ -36,7 +36,9 @@ async def create_customer(
     db: AsyncSession, data: CustomerCreate, current_user: User
 ) -> Customer:
     result = await db.execute(
-        select(Customer).where(Customer.phone == data.phone)
+        select(Customer).where(
+            Customer.phone == data.phone, Customer.user_id == current_user.id
+        )
     )
     if result.scalar_one_or_none():
         raise HTTPException(
@@ -60,6 +62,18 @@ async def update_customer(
     customer = await get_customer(db, customer_id, current_user)
 
     update_data = data.model_dump(exclude_unset=True)
+
+    if data.phone is not None:
+        result = await db.execute(
+            select(Customer).where(
+                Customer.phone == data.phone,
+                Customer.user_id == current_user.id,
+                Customer.id != customer_id,
+            )
+        )
+        if result.scalar_one_or_none():
+            raise HTTPException(status_code=409, detail="Phone already taken")
+
     for field, value in update_data.items():
         setattr(customer, field, value)
 

@@ -20,17 +20,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { TableToolbar, type FilterConfig, type FilterPill } from "@/components/shared/table-toolbar";
 
-interface Purchase {
-  id: string;
-  product_name: string;
-  supplier_name: string;
-  quantity: number;
-  purchase_price: number;
-  total_amount: number;
-  purchase_date: string;
-  notes: string | null;
-  created_at: string;
-}
+import type { Purchase } from "@/types";
+
+type PurchaseRow = Purchase;
 
 export default function PurchasesPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -66,10 +58,11 @@ export default function PurchasesPage() {
     () =>
       purchases.filter((p) => {
         const q = debouncedSearch.toLowerCase();
+        const names = p.items.map((i) => i.product_name).join(" ");
         const matchesSearch =
           !q ||
           p.supplier_name.toLowerCase().includes(q) ||
-          p.product_name.toLowerCase().includes(q) ||
+          names.toLowerCase().includes(q) ||
           (p.notes || "").toLowerCase().includes(q);
         const matchesSupplier = supplierFilter === "all" || p.supplier_name === supplierFilter;
         return matchesSearch && matchesSupplier;
@@ -111,14 +104,21 @@ export default function PurchasesPage() {
     setDeleting(false);
   };
 
-  const columns: Column<Purchase>[] = [
+  const columns: Column<PurchaseRow>[] = [
     { header: "Supplier", render: (p) => <span className="font-medium">{p.supplier_name}</span> },
-    { header: "Product", render: (p) => p.product_name },
-    { header: "Qty", align: "right", render: (p) => p.quantity },
     {
-      header: "Cost / Unit",
+      header: "Products",
+      render: (p) => {
+        const names = p.items.map((i) => i.product_name);
+        const text =
+          names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2} more` : names.join(", ");
+        return <span className="block max-w-[260px] truncate">{text || "N/A"}</span>;
+      },
+    },
+    {
+      header: "Total Qty",
       align: "right",
-      render: (p) => <span className="text-muted-foreground tabular-nums">Rs {Number(p.purchase_price).toLocaleString()}</span>,
+      render: (p) => p.items.reduce((sum, i) => sum + i.quantity, 0),
     },
     {
       header: "Total",
@@ -135,7 +135,7 @@ export default function PurchasesPage() {
     },
     {
       header: "Notes",
-      render: (p) => <span className="text-muted-foreground max-w-[200px] truncate block">{p.notes || "—"}</span>,
+      render: (p) => <span className="text-muted-foreground max-w-[200px] truncate block">{p.notes || "No notes"}</span>,
     },
     {
       header: "Action",
@@ -204,7 +204,11 @@ export default function PurchasesPage() {
           <DialogHeader>
             <DialogTitle>Delete Purchase</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this purchase of <strong>{deleteTarget?.product_name}</strong>? Stock will be reduced.
+              Are you sure you want to delete this purchase
+              {deleteTarget && deleteTarget.items.length > 0 && (
+                <> of <strong>{deleteTarget.items.map((i) => i.product_name).join(", ")}</strong></>
+              )}
+              ? Stock will be reduced.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

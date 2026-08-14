@@ -2,6 +2,12 @@
 
 import { AlertTriangle } from "lucide-react";
 
+import {
+  CardShell,
+  CardHeader,
+  CardBody,
+} from "@/components/assistant/card-shell";
+
 interface ErrorNoticeProps {
   title: string;
   hint?: string;
@@ -9,28 +15,33 @@ interface ErrorNoticeProps {
 }
 
 export function ErrorNotice({ title, hint, options }: ErrorNoticeProps) {
+  const icon = (
+    <span className="flex size-5 items-center justify-center rounded-full bg-red-500 text-white">
+      <AlertTriangle className="size-3" />
+    </span>
+  );
+
   return (
-    <div className="max-w-2xl overflow-hidden rounded-lg border border-red-200 bg-red-50">
-      <div className="flex items-center gap-2 border-b border-red-200 px-4 py-2.5">
-        <span className="flex size-5 items-center justify-center rounded-full bg-red-500 text-white">
-          <AlertTriangle className="size-3" />
-        </span>
-        <span className="text-xs font-semibold uppercase tracking-wide text-red-700">
-          Couldn&apos;t process
-        </span>
-      </div>
-      <p className="px-4 py-3 text-sm font-medium text-red-900">{title}</p>
-      {hint && <p className="px-4 pb-3 text-xs text-red-700">{hint}</p>}
-      {options && options.length > 0 && (
-        <ul className="space-y-1.5 px-4 pb-3.5">
-          {options.map((opt) => (
-            <li key={opt} className="flex items-center gap-2 text-xs text-red-700">
-              <span className="size-1 shrink-0 rounded-full bg-red-400" />
-              <span>{opt}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <CardShell variant="error">
+      <CardHeader
+        icon={icon}
+        label="Couldn&apos;t record"
+        variant="error"
+      />
+
+      <CardBody variant="error">
+        <p className="text-sm font-medium text-red-900">{title}</p>
+        {hint && <p className="mt-1 text-sm text-red-700">{hint}</p>}
+        {options && options.length > 0 && (
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {options.map((opt) => (
+              <li key={opt} className="text-sm text-red-700">
+                {opt}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardBody>
+    </CardShell>
   );
 }

@@ -20,17 +20,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { TableToolbar, type FilterConfig, type FilterPill } from "@/components/shared/table-toolbar";
 
-interface Sale {
-  id: string;
-  customer_name: string | null;
-  product_name: string;
-  quantity: number;
-  unit_price: number;
-  total_amount: number;
-  sale_date: string;
-  notes: string | null;
-  created_at: string;
-}
+import type { Sale } from "@/types";
+
+type SaleRow = Sale;
 
 export default function SalesPage() {
   const [sales, setSales] = useState<Sale[]>([]);
@@ -58,7 +50,12 @@ export default function SalesPage() {
   }, [fetchSales]);
 
   const productOptions = useMemo(
-    () => Array.from(new Set(sales.map((s) => s.product_name || "Unspecified"))).sort(),
+    () =>
+      Array.from(
+        new Set(
+          sales.flatMap((s) => s.items.map((i) => i.product_name)).filter(Boolean)
+        )
+      ).sort() as string[],
     [sales]
   );
 
@@ -66,12 +63,15 @@ export default function SalesPage() {
     () =>
       sales.filter((s) => {
         const q = debouncedSearch.toLowerCase();
+        const names = s.items.map((i) => i.product_name).join(" ");
         const matchesSearch =
           !q ||
           (s.customer_name || "").toLowerCase().includes(q) ||
-          s.product_name.toLowerCase().includes(q) ||
+          names.toLowerCase().includes(q) ||
           (s.notes || "").toLowerCase().includes(q);
-        const matchesProduct = productFilter === "all" || s.product_name === productFilter;
+        const matchesProduct =
+          productFilter === "all" ||
+          s.items.some((i) => i.product_name === productFilter);
         return matchesSearch && matchesProduct;
       }),
     [sales, debouncedSearch, productFilter]
@@ -111,14 +111,21 @@ export default function SalesPage() {
     setDeleting(false);
   };
 
-  const columns: Column<Sale>[] = [
+  const columns: Column<SaleRow>[] = [
     { header: "Customer", render: (s) => <span className="font-medium">{s.customer_name || "Walk-in"}</span> },
-    { header: "Product", render: (s) => s.product_name },
-    { header: "Qty", align: "right", render: (s) => s.quantity },
     {
-      header: "Unit Price",
+      header: "Products",
+      render: (s) => {
+        const names = s.items.map((i) => i.product_name);
+        const text =
+          names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2} more` : names.join(", ");
+        return <span className="block max-w-[260px] truncate">{text || "N/A"}</span>;
+      },
+    },
+    {
+      header: "Total Qty",
       align: "right",
-      render: (s) => <span className="text-muted-foreground tabular-nums">Rs {Number(s.unit_price).toLocaleString()}</span>,
+      render: (s) => s.items.reduce((sum, i) => sum + i.quantity, 0),
     },
     {
       header: "Total",
@@ -135,7 +142,7 @@ export default function SalesPage() {
     },
     {
       header: "Notes",
-      render: (s) => <span className="text-muted-foreground max-w-[200px] truncate block">{s.notes || "—"}</span>,
+      render: (s) => <span className="text-muted-foreground max-w-[200px] truncate block">{s.notes || "No notes"}</span>,
     },
     {
       header: "Action",
@@ -204,7 +211,11 @@ export default function SalesPage() {
           <DialogHeader>
             <DialogTitle>Delete Sale</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this sale of <strong>{deleteTarget?.product_name}</strong>? Stock will be restored.
+              Are you sure you want to delete this sale
+              {deleteTarget && deleteTarget.items.length > 0 && (
+                <> of <strong>{deleteTarget.items.map((i) => i.product_name).join(", ")}</strong></>
+              )}
+              ? Stock will be restored.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -35,7 +35,9 @@ async def get_overview(db: AsyncSession, current_user: User, period: str = "30d"
     total_sales = total_sales_result.scalar()
 
     stock_result = await db.execute(
-        select(func.coalesce(func.sum(Product.stock_quantity), 0))
+        select(func.coalesce(func.sum(Product.stock_quantity), 0)).where(
+            Product.user_id == current_user.id
+        )
     )
     stock_items = stock_result.scalar()
 

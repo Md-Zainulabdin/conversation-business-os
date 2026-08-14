@@ -1,37 +1,73 @@
 import uuid
+from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product import Product
-from app.models.purchase import Purchase
+from app.models.purchase import Purchase, PurchaseItem
 from app.models.user import User
 from app.schemas.purchase import PurchaseCreate, PurchaseUpdate
 
 
-async def _enrich_purchases(db: AsyncSession, purchases: list[Purchase]) -> list[dict]:
+def _purchase_dict(purchase: Purchase, product_names: dict) -> dict:
+    return {
+        "id": purchase.id,
+        "supplier_name": purchase.supplier_name,
+        "total_amount": purchase.total_amount,
+        "purchase_date": purchase.purchase_date,
+        "notes": purchase.notes,
+        "created_at": purchase.created_at,
+        "updated_at": purchase.updated_at,
+        "items": [
+            {
+                "id": item.id,
+                "product_id": item.product_id,
+                "product_name": product_names.get(item.product_id, "Unknown"),
+                "quantity": item.quantity,
+                "purchase_price": item.purchase_price,
+                "total_amount": item.total_amount,
+            }
+            for item in purchase.items
+        ],
+    }
+
+
+async def _enrich_purchases(
+    db: AsyncSession, purchases: list[Purchase]
+) -> list[dict]:
     if not purchases:
         return []
 
-    product_ids = {purchase.product_id for purchase in purchases}
+    product_ids = {
+        item.product_id for purchase in purchases for item in purchase.items
+    }
     product_names: dict[uuid.UUID, str] = {}
-    product_result = await db.execute(
-        select(Product.id, Product.name).where(Product.id.in_(product_ids))
-    )
-    product_names.update(product_result.all())
+    if product_ids:
+        product_result = await db.execute(
+            select(Product.id, Product.name).where(Product.id.in_(product_ids))
+        )
+        product_names.update(product_result.all())
 
-    return [
-        {
-            **{c.name: getattr(purchase, c.name) for c in purchase.__table__.columns},
-            "product_name": product_names.get(purchase.product_id, "Unknown"),
-        }
-        for purchase in purchases
-    ]
+    return [_purchase_dict(purchase, product_names) for purchase in purchases]
 
 
 async def _enrich_purchase(db: AsyncSession, purchase: Purchase) -> dict:
     return (await _enrich_purchases(db, [purchase]))[0]
+
+
+async def _load_products(
+    db: AsyncSession, product_ids: set[uuid.UUID], current_user: User
+) -> dict[uuid.UUID, Product]:
+    if not product_ids:
+        return {}
+    result = await db.execute(
+        select(Product)
+        .where(Product.id.in_(product_ids), Product.user_id == current_user.id)
+        .with_for_update()
+    )
+    return {p.id: p for p in result.scalars().all()}
 
 
 async def list_purchases(db: AsyncSession, current_user: User) -> list[dict]:
@@ -61,17 +97,37 @@ async def get_purchase(
 async def create_purchase(
     db: AsyncSession, data: PurchaseCreate, current_user: User
 ) -> dict:
-    product = await db.execute(
-        select(Product).where(Product.id == data.product_id)
+    product_ids = {item.product_id for item in data.items}
+    products = await _load_products(db, product_ids, current_user)
+    for item in data.items:
+        if item.product_id not in products:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+    total_amount = sum(
+        (item.total_amount for item in data.items), Decimal("0")
     )
-    product = product.scalar_one_or_none()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-
-    purchase = Purchase(**data.model_dump(), user_id=current_user.id)
-    product.stock_quantity += data.quantity
-
+    purchase = Purchase(
+        supplier_name=data.supplier_name,
+        total_amount=total_amount,
+        purchase_date=data.purchase_date,
+        notes=data.notes,
+        user_id=current_user.id,
+    )
     db.add(purchase)
+    await db.flush()
+
+    for item in data.items:
+        db.add(
+            PurchaseItem(
+                purchase_id=purchase.id,
+                product_id=item.product_id,
+                quantity=item.quantity,
+                purchase_price=item.purchase_price,
+                total_amount=item.total_amount,
+            )
+        )
+        products[item.product_id].stock_quantity += item.quantity
+
     try:
         await db.commit()
         await db.refresh(purchase)
@@ -93,34 +149,48 @@ async def update_purchase(
     if not purchase:
         raise HTTPException(status_code=404, detail="Purchase not found")
 
-    old_product = await db.execute(
-        select(Product).where(Product.id == purchase.product_id)
-    )
-    old_product = old_product.scalar_one_or_none()
+    if data.items is not None:
+        if not data.items:
+            raise HTTPException(
+                status_code=400, detail="A purchase needs at least one product"
+            )
 
-    new_quantity = data.quantity if data.quantity is not None else purchase.quantity
-    new_product_id = (
-        data.product_id if data.product_id is not None else purchase.product_id
-    )
-    product_changed = new_product_id != purchase.product_id
+        old_stock: dict[uuid.UUID, int] = {}
+        for item in purchase.items:
+            old_stock[item.product_id] = (
+                old_stock.get(item.product_id, 0) + item.quantity
+            )
+        old_products = await _load_products(db, set(old_stock), current_user)
+        for product_id, qty in old_stock.items():
+            product = old_products.get(product_id)
+            if product:
+                product.stock_quantity -= qty
 
-    if product_changed:
-        if old_product:
-            old_product.stock_quantity -= purchase.quantity
+        product_ids = {item.product_id for item in data.items}
+        products = await _load_products(db, product_ids, current_user)
+        for item in data.items:
+            if item.product_id not in products:
+                raise HTTPException(status_code=404, detail="Product not found")
+            products[item.product_id].stock_quantity += item.quantity
 
-        new_product = await db.execute(
-            select(Product).where(Product.id == new_product_id)
+        for item in list(purchase.items):
+            await db.delete(item)
+        await db.flush()
+        for item in data.items:
+            db.add(
+                PurchaseItem(
+                    purchase_id=purchase.id,
+                    product_id=item.product_id,
+                    quantity=item.quantity,
+                    purchase_price=item.purchase_price,
+                    total_amount=item.total_amount,
+                )
+            )
+        purchase.total_amount = sum(
+            (item.total_amount for item in data.items), Decimal("0")
         )
-        new_product = new_product.scalar_one_or_none()
-        if not new_product:
-            raise HTTPException(status_code=404, detail="Product not found")
-        new_product.stock_quantity += new_quantity
-    else:
-        quantity_diff = new_quantity - purchase.quantity
-        if old_product:
-            old_product.stock_quantity += quantity_diff
 
-    update_data = data.model_dump(exclude_unset=True)
+    update_data = data.model_dump(exclude_unset=True, exclude={"items"})
     for field, value in update_data.items():
         setattr(purchase, field, value)
 
@@ -145,12 +215,14 @@ async def delete_purchase(
     if not purchase:
         raise HTTPException(status_code=404, detail="Purchase not found")
 
-    product = await db.execute(
-        select(Product).where(Product.id == purchase.product_id)
-    )
-    product = product.scalar_one_or_none()
-    if product:
-        product.stock_quantity -= purchase.quantity
+    stock: dict[uuid.UUID, int] = {}
+    for item in purchase.items:
+        stock[item.product_id] = stock.get(item.product_id, 0) + item.quantity
+    products = await _load_products(db, set(stock), current_user)
+    for product_id, qty in stock.items():
+        product = products.get(product_id)
+        if product:
+            product.stock_quantity -= qty
 
     try:
         await db.delete(purchase)

@@ -87,7 +87,7 @@ export default function CategoriesPage() {
     {
       header: "Description",
       render: (c) => (
-        <span className="text-muted-foreground">{c.description || "—"}</span>
+        <span className="text-muted-foreground">{c.description || "No description"}</span>
       ),
     },
     {

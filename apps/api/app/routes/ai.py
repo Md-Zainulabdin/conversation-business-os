@@ -22,7 +22,9 @@ async def propose_command(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await ai_service.propose(db, current_user, data.message)
+    return await ai_service.propose(
+        db, current_user, data.message, conversation_id=data.conversation_id
+    )
 
 
 @router.post("/commands/resolve", response_model=AIProposalResponse)
@@ -40,4 +42,6 @@ async def execute_command(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await ai_service.execute(db, current_user, data.command)
+    return await ai_service.execute(
+        db, current_user, data.command, idempotency_key=data.idempotency_key
+    )

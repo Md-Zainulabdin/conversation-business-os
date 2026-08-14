@@ -21,30 +21,42 @@ export interface Customer {
   updated_at: string;
 }
 
-export interface Sale {
+export interface SaleItem {
   id: string;
-  customer_id?: string;
-  customer_name?: string;
   product_id: string;
-  product_name?: string;
+  product_name: string;
   quantity: number;
   unit_price: number;
   total_amount: number;
+}
+
+export interface Sale {
+  id: string;
+  customer_id?: string | null;
+  customer_name?: string | null;
+  total_amount: number;
   sale_date: string;
-  notes?: string;
+  notes?: string | null;
+  items: SaleItem[];
   created_at: string;
+}
+
+export interface PurchaseItem {
+  id: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  purchase_price: number;
+  total_amount: number;
 }
 
 export interface Purchase {
   id: string;
-  product_id: string;
-  product_name?: string;
   supplier_name: string;
-  quantity: number;
-  purchase_price: number;
   total_amount: number;
   purchase_date: string;
-  notes?: string;
+  notes?: string | null;
+  items: PurchaseItem[];
   created_at: string;
 }
 
@@ -54,19 +66,6 @@ export interface Expense {
   category: string;
   amount: number;
   expense_date: string;
-  notes?: string;
-  created_at: string;
-}
-
-export interface Report {
-  id: string;
-  report_date: string;
-  title: string;
-  category: string;
-  total_sales_count: number;
-  total_revenue: number;
-  total_expenses: number;
-  net_profit: number;
   notes?: string;
   created_at: string;
 }
@@ -92,19 +91,41 @@ export interface ProductCandidate {
   stock_quantity: number;
 }
 
-export interface AICommand {
-  intent: CommandIntent;
+export interface AIItem {
   product_name?: string | null;
-  product_id?: string | null;
   quantity?: number | null;
+  unit?: string | null;
   unit_price?: number | null;
   total_amount?: number | null;
+  product_id?: string | null;
+  product_unit?: string | null;
+  stock_after?: number | null;
+}
+
+export type IssueKind =
+  | "not_found"
+  | "invalid_unit"
+  | "invalid_quantity"
+  | "invalid_price"
+  | "no_catalog";
+
+export interface ItemIssue {
+  kind: IssueKind;
+  name: string;
+  quantity?: number | null;
+  detail?: string | null;
+}
+
+export interface AICommand {
+  intent: CommandIntent;
+  items: AIItem[];
   customer_name?: string | null;
   supplier_name?: string | null;
   title?: string | null;
   category?: string | null;
   notes?: string | null;
   date?: string | null;
+  total_amount?: number | null;
 }
 
 export interface AIProposalResponse {
@@ -112,6 +133,7 @@ export interface AIProposalResponse {
   requires_confirmation: boolean;
   message: string;
   disambiguation?: ProductCandidate[] | null;
+  issues?: ItemIssue[] | null;
 }
 
 export interface AIExecuteResponse {
@@ -132,9 +154,11 @@ export interface ChatMessage {
   command?: AICommand | null;
   requiresConfirmation?: boolean;
   disambiguation?: ProductCandidate[] | null;
+  issues?: ItemIssue[] | null;
   busy?: boolean;
   executing?: boolean;
   executed?: boolean;
+  cancelled?: boolean;
   error?: boolean;
   errorDetail?: ErrorDetail;
 }

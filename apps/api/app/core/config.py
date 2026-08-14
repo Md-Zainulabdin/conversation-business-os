@@ -12,7 +12,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/cbo"
     REDIS_URL: str = "redis://localhost:6379"
 
-    SECRET_KEY: str = "change-this-to-a-random-secret-key"
+    SECRET_KEY: str = ""
+    ENVIRONMENT: str = "development"
 
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "openai/gpt-oss-120b"
@@ -24,5 +25,12 @@ class Settings(BaseSettings):
         "case_sensitive": True,
     }
 
+    def validate_security(self) -> None:
+        if self.ENVIRONMENT == "production" and not self.SECRET_KEY:
+            raise RuntimeError(
+                "SECRET_KEY must be set to a strong random value in production"
+            )
+
 
 settings = Settings()
+settings.validate_security()

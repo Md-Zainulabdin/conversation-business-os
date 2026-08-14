@@ -25,7 +25,7 @@ interface LoginData {
 }
 
 interface User {
-  id: number;
+  id: string;
   email: string;
   name: string;
   is_active: boolean;
@@ -39,6 +39,7 @@ interface AuthState {
   error: string | null;
   register: (data: RegisterData) => Promise<void>;
   login: (data: LoginData) => Promise<void>;
+  fetchMe: () => Promise<void>;
   logout: () => void;
   clearError: () => void;
 }
@@ -85,6 +86,18 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem("token");
     deleteCookie(TOKEN_COOKIE);
     set({ token: null, user: null, error: null });
+  },
+
+  fetchMe: async () => {
+    try {
+      const user = await api.get<User>("/auth/me");
+      set({ user, loading: false, error: null });
+    } catch (e) {
+      set({
+        error: e instanceof Error ? e.message : "Failed to load user",
+        loading: false,
+      });
+    }
   },
 
   clearError: () => set({ error: null }),
