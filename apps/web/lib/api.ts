@@ -15,10 +15,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
+  const isForm = options.body instanceof FormData;
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...(isForm ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
@@ -54,6 +55,12 @@ export const api = {
     return request<T>(path, {
       method: "POST",
       body: JSON.stringify(body),
+    });
+  },
+  postForm<T>(path: string, form: FormData) {
+    return request<T>(path, {
+      method: "POST",
+      body: form,
     });
   },
   put<T>(path: string, body: unknown) {

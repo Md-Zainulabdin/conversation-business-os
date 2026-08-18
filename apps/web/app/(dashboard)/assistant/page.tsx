@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send } from "lucide-react";
+import { Bot, Mic, Send, Square } from "lucide-react";
 
 import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { useRecorder } from "@/lib/hooks/use-recorder";
 
 import type {
   AICommand,
@@ -14,6 +15,7 @@ import type {
   AIProposalResponse,
   ChatMessage,
   ErrorDetail,
+  VoiceProposalResponse,
 } from "@/types";
 import { CommandCard } from "@/components/assistant/command-card";
 import { RecordSuccess } from "@/components/assistant/record-success";
@@ -68,8 +70,10 @@ export default function AssistantPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [conversationId] = useState<string>(() => nextId());
+  const busyRef = useRef(false);
+  const [conversationId, setConversationId] = useState<string>(() => nextId());
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { recording, elapsed, error: recorderError, start, stop } = useRecorder();
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -80,7 +84,8 @@ export default function AssistantPage() {
 
   async function sendMessage(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || busy) return;
+    if (!trimmed || busyRef.current) return;
+    busyRef.current = true;
 
     const hasPending = messages.some(
       (m) =>
@@ -111,6 +116,7 @@ export default function AssistantPage() {
         },
       ]);
       setInput("");
+      busyRef.current = false;
       return;
     }
 
@@ -135,6 +141,10 @@ export default function AssistantPage() {
         message: trimmed,
         conversation_id: conversationId,
       });
+
+      if (proposal.command.conversation_id) {
+        setConversationId(proposal.command.conversation_id);
+      }
 
       const assistantMessage: ChatMessage = {
         id: thinkingMessage.id,
@@ -163,7 +173,90 @@ export default function AssistantPage() {
       );
     } finally {
       setBusy(false);
+      busyRef.current = false;
     }
+  }
+
+  async function sendVoiceMessage(blob: Blob) {
+    if (busyRef.current) return;
+    busyRef.current = true;
+
+    const thinkingMessage: ChatMessage = {
+      id: nextId(),
+      role: "assistant",
+      text: "",
+      busy: true,
+    };
+
+    setMessages((prev) => [...prev, thinkingMessage]);
+    setBusy(true);
+
+    try {
+      const form = new FormData();
+      form.append("file", blob, "recording.webm");
+      form.append("conversation_id", conversationId);
+
+      const proposal = await api.postForm<VoiceProposalResponse>(
+        "/ai/voice",
+        form
+      );
+
+      if (proposal.command.conversation_id) {
+        setConversationId(proposal.command.conversation_id);
+      }
+
+      const userMessage: ChatMessage = {
+        id: nextId(),
+        role: "user",
+        text: proposal.transcript,
+      };
+      const assistantMessage: ChatMessage = {
+        id: thinkingMessage.id,
+        role: "assistant",
+        text: proposal.message,
+        command: proposal.command,
+        requiresConfirmation: proposal.requires_confirmation,
+        disambiguation: proposal.disambiguation ?? null,
+        issues: proposal.issues ?? null,
+      };
+
+      setMessages((prev) => {
+        const withAssistant = prev.map((m) =>
+          m.id === thinkingMessage.id ? assistantMessage : m
+        );
+        const index = withAssistant.findIndex((m) => m.id === assistantMessage.id);
+        if (index === -1) return [...withAssistant, userMessage];
+        return [
+          ...withAssistant.slice(0, index),
+          userMessage,
+          ...withAssistant.slice(index),
+        ];
+      });
+    } catch (err) {
+      const errorDetail = parseErrorDetail(err);
+      const errorMessage: ChatMessage = {
+        id: thinkingMessage.id,
+        role: "assistant",
+        text: errorDetail.title,
+        error: true,
+        errorDetail,
+      };
+      setMessages((prev) =>
+        prev.map((m) => (m.id === thinkingMessage.id ? errorMessage : m))
+      );
+    } finally {
+      setBusy(false);
+      busyRef.current = false;
+    }
+  }
+
+  async function handleVoiceStart() {
+    const blob = await start();
+    if (blob) sendVoiceMessage(blob);
+  }
+
+  function handleVoiceStop() {
+    stop();
   }
 
   async function executeCommand(id: string, command: AICommand) {
@@ -443,17 +536,56 @@ export default function AssistantPage() {
           onChange={(e) => setInput(e.target.value)}
           placeholder='Try "Sold 20 packs of rice" or ask about your stock...'
           autoFocus
+          disabled={recording}
           className="border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
         />
+        {recording ? (
+          <Button
+            type="button"
+            onClick={handleVoiceStop}
+            variant="destructive"
+            size="icon"
+            className="shrink-0 rounded-full"
+            title={`Recording... ${elapsed}s`}
+          >
+            <Square className="size-4" />
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            onClick={handleVoiceStart}
+            disabled={busy}
+            size="icon"
+            variant="ghost"
+            className="shrink-0 rounded-full text-muted-foreground hover:text-primary"
+            title="Record a voice message"
+          >
+            <Mic className="size-4" />
+          </Button>
+        )}
         <Button
           type="submit"
-          disabled={busy || !input.trim()}
+          disabled={busy || recording || !input.trim()}
           size="icon"
           className="shrink-0 rounded-full"
         >
           <Send className="size-4" />
         </Button>
       </form>
+
+      {recording && (
+        <div className="mx-auto -mt-4 mb-2 flex max-w-3xl items-center gap-2 text-xs text-primary">
+          <Spinner className="size-3" />
+          <span className="font-medium">Recording... {elapsed}s</span>
+          <span className="text-muted-foreground">Press stop when done</span>
+        </div>
+      )}
+
+      {recorderError && (
+        <div className="mx-auto -mt-4 mb-2 flex max-w-3xl items-center gap-2 text-xs text-destructive">
+          {recorderError}
+        </div>
+      )}
     </div>
   );
 }

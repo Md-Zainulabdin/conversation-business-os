@@ -58,6 +58,7 @@ AI_COMMAND_SCHEMA: dict = {
         "notes": {"type": ["string", "null"]},
         "date": {"type": ["string", "null"]},
         "total_amount": {"type": ["number", "null"]},
+        "conversation_id": {"type": ["string", "null"]},
     },
     "required": [
         "intent",
@@ -69,6 +70,7 @@ AI_COMMAND_SCHEMA: dict = {
         "notes",
         "date",
         "total_amount",
+        "conversation_id",
     ],
     "additionalProperties": False,
 }
@@ -118,6 +120,7 @@ class AICommand(BaseModel):
     notes: str | None = None
     date: datetime | None = None
     total_amount: Decimal | None = None
+    conversation_id: str | None = None
 
     _validate_text = field_validator(
         "customer_name",
@@ -156,6 +159,10 @@ class AIProposalResponse(BaseModel):
     issues: list[ItemIssue] | None = None
 
 
+class VoiceProposalResponse(AIProposalResponse):
+    transcript: str
+
+
 class AIExecuteRequest(BaseModel):
     command: AICommand
     idempotency_key: str | None = None
@@ -186,4 +193,5 @@ __all__ = [
     "MAX_MESSAGE_LENGTH",
     "MAX_QUANTITY",
     "ProductCandidate",
+    "VoiceProposalResponse",
 ]

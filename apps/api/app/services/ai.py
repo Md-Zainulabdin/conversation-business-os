@@ -1,9 +1,11 @@
 import asyncio
 import json
+import logging
 import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from difflib import SequenceMatcher
 
 from fastapi import HTTPException
 from groq import BadRequestError
@@ -12,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.integrations.groq import get_groq_client
+from app.integrations.groq import get_groq_client, transcribe_audio
 from app.models.customer import Customer
 from app.models.product import Product
 from app.models.user import User
@@ -35,6 +37,8 @@ from app.services import expense as expense_service
 from app.services import purchase as purchase_service
 from app.services import sale as sale_service
 from app.services.ai_session import ai_session_store, idempotency_store
+
+logger = logging.getLogger(__name__)
 
 INTENT_HELP_MESSAGE = (
     "I can record your sales, purchases and expenses, and answer stock questions. "
@@ -175,15 +179,55 @@ def _match_unique(products: list[Product], name: str) -> list[Product]:
                 if user_tokens.issubset(product_tokens):
                     by_name[p.name] = p
 
+    # Voice transcripts often misspell names ("cocaa", "pepsi coola", "ricee").
+    # When nothing else matched, use fuzzy similarity so a clearly-similar name
+    # still resolves; near-ties stay ambiguous so the system never guesses.
+    if not by_name:
+        user_words = [t for t in _word_tokens(normalized) if t not in _PACKAGING_WORDS]
+        candidate_ratios = []
+        for p in products:
+            product_words = [
+                t for t in _word_tokens(p.name) if t not in _PACKAGING_WORDS
+            ]
+            ratio = SequenceMatcher(None, normalized, _normalized(p.name)).ratio()
+            if user_words and product_words:
+                best_per_word = []
+                for uw in user_words:
+                    best = max(
+                        SequenceMatcher(None, uw, pw).ratio() for pw in product_words
+                    )
+                    best_per_word.append(best)
+                reduced_ratio = sum(best_per_word) / len(best_per_word)
+                ratio = max(ratio, reduced_ratio)
+            candidate_ratios.append((p, ratio))
+        candidate_ratios.sort(key=lambda pair: pair[1], reverse=True)
+        fuzzy_threshold = settings.FUZZY_MATCH_THRESHOLD
+        tie_threshold = settings.FUZZY_TIE_THRESHOLD
+        if candidate_ratios and candidate_ratios[0][1] >= fuzzy_threshold:
+            best_ratio = candidate_ratios[0][1]
+            for p, ratio in candidate_ratios:
+                if ratio >= fuzzy_threshold and best_ratio - ratio <= tie_threshold:
+                    by_name[p.name] = p
+
     return list(by_name.values())
+
+
+def _sanitize_for_prompt(text: str) -> str:
+    """Sanitize text to prevent prompt injection."""
+    if not text:
+        return ""
+    sanitized = text.replace("\n", " ").replace("\r", " ")
+    sanitized = re.sub(r"[<>]", "", sanitized)
+    sanitized = sanitized[:200]
+    return sanitized.strip()
 
 
 def _fmt_catalog(products: list[Product], customers: list[Customer]) -> tuple[str, str]:
     product_lines = [
-        f"- {p.name} ({p.unit}, selling at Rs {_fmt_money(p.selling_price)})"
+        f"- {_sanitize_for_prompt(p.name)} ({_sanitize_for_prompt(p.unit)}, selling at Rs {_fmt_money(p.selling_price)})"
         for p in products
     ]
-    customer_lines = [f"- {c.name}" for c in customers]
+    customer_lines = [f"- {_sanitize_for_prompt(c.name)}" for c in customers]
     products_text = "\n".join(product_lines) or "- (none)"
     customers_text = "\n".join(customer_lines) or "- (none)"
     return products_text, customers_text
@@ -198,7 +242,7 @@ def _context_block(history: list[tuple[str, str]]) -> str | None:
     ]
     for role, text in history:
         who = "user" if role == "user" else "assistant"
-        lines.append(f"{who}: {text}")
+        lines.append(f"{who}: {_sanitize_for_prompt(text)}")
     return "\n".join(lines)
 
 
@@ -211,14 +255,15 @@ def _system_prompt(
     context = _context_block(history)
 
     rules = f"""You are an assistant embedded in a retail management system used by a shopkeeper in Pakistan.
-The user sends short, informal messages in English, Pakistani English, Roman Urdu, or a mix, such as:
-- 'Bhai 10 rice sale kar do'
-- '10 Coke nikal gai'
-- 'Ahmed ko 5 rice de diye'
-- 'Bijli ka 5000 bill diya'
-- 'Coke ka stock kitna hai?'
-- 'Sold ten packs of rice'
+The user sends short, informal messages in ENGLISH. Examples:
+- 'Sold 20 packs of rice'
+- 'Sold 10 packs of rice and 20 coca-colas'
+- 'Bought 10 cartons of Coke'
+- 'Paid 5,000 for electricity'
+- 'How much Coke stock is left?'
 Understand them and translate the message into a single structured command with no extra text.
+Messages in any other language (Urdu, Roman Urdu, Hindi, etc.) are NOT supported: set intent to "other"
+and put notes describing what the user said.
 
 Supported intents:
 - "sale": products were sold to a customer.
@@ -234,6 +279,8 @@ For an inquiry, put the product being asked about as a single item.
 For an expense or "other", leave items as an empty array.
 
 HARD RULES:
+- ONLY process ENGLISH. If the message is in Urdu, Roman Urdu, Hindi, or any other language, do NOT
+  translate or process it: set intent to "other" with notes describing what the user said.
 - One intent per message. A message may only describe ONE operation type. If a single message
   mixes intents (for example a sale AND a purchase AND an expense), do NOT pick one and drop the
   rest. Set intent to "other" and set notes to "mixed operations" so the user is asked to send
@@ -242,6 +289,9 @@ HARD RULES:
 - quantity is a positive whole number from 1 to {MAX_QUANTITY}. If the user gives a range
   ("10-20"), an approximation ("about 10", "a few"), or anything that is not one exact whole
   number, set quantity to null so the system can ask. Never round or estimate.
+- Quantities may be spoken rather than typed. Convert English number words ("one", "twelve",
+  "twenty", "five hundred") into digits.
+  The number the user said is the exact quantity; never approximate it.
 - If the user states the unit in the message ("bottles", "packs", "kg"), put it in the item's
   "unit" field exactly as written. Otherwise leave "unit" null.
 - unit_price is the price per unit; total_amount is the total for the whole transaction.
@@ -256,8 +306,8 @@ HARD RULES:
 - Inquiry: put the product being asked about in items[0].product_name.
 - Do NOT treat hypotheticals, plans, wishes, or negations as real transactions. "I was thinking
   about selling", "I don't want to sell", "don't record this", "would", "if", "should" -> intent
-  "other" with notes describing what the user asked. Only "sold", "bought", "paid", "de deye",
-  "nikal gai", etc. describing something that happened count as transactions.
+  "other" with notes describing what the user asked. Only "sold", "bought", "paid", etc. describing
+  something that happened count as transactions.
 - A bare list of quantities and product names with no verb (for example "1 dishwashing liquid
   and 5 tea packs") almost always means those items were SOLD. Treat it as a sale, not "other".
 - Do NOT execute conditional or automated requests ("if stock is below 20 buy 50") -> intent "other".
@@ -272,9 +322,11 @@ HARD RULES:
   (Pakistan Standard Time). For "tomorrow" or any future date, return the date anyway; the system
   rejects future transactions. Otherwise null (meaning today).
 
-The user's products and customers are listed below. Users often refer to products by short or brand names.
-Map such names to the exact full name from the Products list (for example "coke" -> "Coca Cola 1.5L Bottle",
-"rice" -> "Super Basmati Rice 5kg", "oil" -> "Refined Cooking Oil 3L"). Always use the exact name from the list
+The user's products and customers are listed below. Users often refer to products by short or brand names,
+and voice transcripts may misspell or split them. Map such names to the exact full name from the Products list
+(for example "coke"/"koka"/"cocoa cola" -> "Coca Cola 1.5L Bottle", "rice"/"basmati" -> "Super Basmati Rice 5kg",
+"cooking oil"/"frying oil" -> "Refined Cooking Oil 3L"). Overlook minor typos and spelling variations from speech-to-text,
+but never change the meaning of the word. Always use the exact name from the list
 when the message refers to one of them. IMPORTANT: if the user's word could refer to more than one product in
 the list (for example "rice" when several rice products exist), do NOT pick one; instead leave product_name
 exactly as the user wrote it so the system can ask them which one they mean. Only if the message clearly refers
@@ -347,22 +399,32 @@ async def _parse_command(
         except BadRequestError as exc:
             body = exc.body or {}
             if body.get("code") != "json_validate_failed":
+                logger.warning(
+                    "Groq BadRequestError on parse attempt %d: %s",
+                    attempt + 1,
+                    exc,
+                )
                 raise HTTPException(
                     status_code=502,
                     detail="AI assistant could not process that request. Please try again.",
                 ) from exc
-        except (json.JSONDecodeError, TypeError, ValidationError, _RetryableParse):
-            pass
+        except (json.JSONDecodeError, TypeError, ValidationError, _RetryableParse) as exc:
+            logger.warning(
+                "Parse error on attempt %d: %s",
+                attempt + 1,
+                exc,
+            )
 
         if attempt < 2:
             await asyncio.sleep(0.4 * (attempt + 1))
             continue
         break
 
+    logger.error("Failed to parse command after 3 attempts: %s", message[:100])
     raise HTTPException(
         status_code=502,
         detail="AI assistant is busy right now. Please try again.",
-    ) from None
+    )
 
 
 def _build_candidates(products: list[Product]) -> list[ProductCandidate]:
@@ -983,6 +1045,48 @@ async def propose(
         ai_session_store.push(key, "user", message)
         ai_session_store.push(key, "assistant", proposal.message)
     return proposal
+
+
+async def transcribe_and_propose(
+    db: AsyncSession,
+    current_user: User,
+    file_bytes: bytes,
+    filename: str,
+    client=None,
+    conversation_id: str | None = None,
+    content_type: str | None = None,
+) -> tuple[str, AIProposalResponse]:
+    if not settings.GROQ_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="AI assistant is not configured (GROQ_API_KEY missing)",
+        )
+
+    client = client or get_groq_client()
+    try:
+        transcript = await transcribe_audio(
+            client, file_bytes, filename, content_type=content_type
+        )
+    except ValueError as exc:
+        logger.warning("Transcription validation error: %s", exc)
+        raise _structured_error(status_code=400, title=str(exc)) from exc
+
+    transcript = transcript.strip()
+    if not transcript:
+        logger.warning("Empty transcript received for file: %s", filename)
+        raise _structured_error(
+            status_code=400,
+            title="I could not hear anything in that recording. Please try again.",
+        )
+
+    proposal = await propose(
+        db,
+        current_user,
+        transcript,
+        client=client,
+        conversation_id=conversation_id,
+    )
+    return transcript, proposal
 
 
 async def resolve(

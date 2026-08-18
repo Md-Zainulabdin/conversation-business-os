@@ -17,6 +17,12 @@ class Settings(BaseSettings):
 
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_WHISPER_MODEL: str = "whisper-large-v3-turbo"
+
+    TRANSCRIPTION_TIMEOUT_SECONDS: float = 60.0
+
+    FUZZY_MATCH_THRESHOLD: float = 0.78
+    FUZZY_TIE_THRESHOLD: float = 0.05
 
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
 

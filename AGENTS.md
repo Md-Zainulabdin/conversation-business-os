@@ -33,7 +33,7 @@ A web app (Next.js frontend + FastAPI backend) with full retail features:
 - **Transactions**: multi-item sales, purchases, and expenses — stock adjusts automatically, with integrity guards on create/edit/delete.
 - **Dashboard**: total sales, stock, customers, and a searchable recent-activity feed (24h / 7d / 30d / 12m periods).
 - **AI assistant**: type plain language ("Sold 20 packs of rice") and the assistant proposes the transaction, asks for confirmation (and disambiguation when ambiguous), then records it — with idempotency and conversation memory.
-- **91 passing automated tests** covering stock integrity, per-user isolation, AI safety guardrails, and report analytics. CI/CD via GitHub Actions.
+- **101 passing automated tests** covering stock integrity, per-user isolation, AI safety guardrails, and report analytics. CI/CD via GitHub Actions.
 
 ---
 
@@ -72,7 +72,7 @@ Tests:
 
 Backend:
 - Add `POST /ai/voice` accepting a multipart audio upload.
-- Transcribe with **Groq Whisper API** (reuses the existing `GROQ_API_KEY`, e.g. `whisper-large-v3` / `distil-whisper-large-v3`).
+- Transcribe with **Groq Whisper API** (reuses the existing `GROQ_API_KEY`, e.g. `whisper-large-v3-turbo`).
 - Feed the transcript straight into the existing `ai_service.propose()` → same confirm/execute flow. **Zero new business logic.** Reuse the same idempotency + session guards.
 
 Frontend:

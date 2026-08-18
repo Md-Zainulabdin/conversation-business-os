@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from decimal import Decimal
@@ -15,6 +16,9 @@ from app.models.sale import Sale, SaleItem
 from app.models.user import User
 from app.schemas.ai import AICommand, AIItem
 from app.services import ai as ai_service
+
+# Valid MP3 magic bytes for testing (ID3v2 header)
+FAKE_AUDIO_MP3 = b"ID3\x03\x00\x00\x00\x00\x00fake-audio-data"
 
 
 class FakeGroqClient:
@@ -522,3 +526,248 @@ async def test_propose_inquiry_answers_without_confirmation(db):
 
     assert proposal.requires_confirmation is False
     assert "120 Pack" in proposal.message
+
+
+class VoiceFakeClient:
+    def __init__(self, transcript: str, command: dict):
+        self._transcript = transcript
+        self._command = command
+        self.transcription_calls = 0
+        self.audio = SimpleNamespace(transcriptions=SimpleNamespace(create=self._transcribe))
+
+    async def _transcribe(self, **kwargs):
+        self.transcription_calls += 1
+        return SimpleNamespace(text=self._transcript)
+
+    @property
+    def chat(self):
+        return SimpleNamespace(
+            completions=SimpleNamespace(create=self._create)
+        )
+
+    async def _create(self, **kwargs):
+        return SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(content=json.dumps(self._command))
+                )
+            ]
+        )
+
+
+async def test_voice_propose_sale_matches_typed_text(db):
+    user = await _make_user(db)
+    await _make_product(db, user, name="Coke", stock=100)
+
+    command = _base_command("sale")
+    command["items"] = [
+        {
+            "product_name": "Coke",
+            "quantity": 20,
+            "unit_price": None,
+            "total_amount": None,
+        }
+    ]
+    client = VoiceFakeClient("Sold 20 packs of Coke", command)
+    transcript, proposal = await ai_service.transcribe_and_propose(
+        db, user, FAKE_AUDIO_MP3, "recording.mp3", client=client
+    )
+
+    assert client.transcription_calls == 1
+    assert transcript == "Sold 20 packs of Coke"
+    assert proposal.requires_confirmation is True
+    assert "Sale: 20 x Coke" in proposal.message
+    assert await _count(db, Sale) == 0
+
+
+async def test_voice_propose_and_execute_records_sale(db):
+    user = await _make_user(db)
+    await _make_product(db, user, name="Coke", stock=100)
+
+    command = _base_command("sale")
+    command["items"] = [
+        {
+            "product_name": "Coke",
+            "quantity": 10,
+            "unit_price": None,
+            "total_amount": None,
+        }
+    ]
+    client = VoiceFakeClient("Sold 10 packs of Coke", command)
+    transcript, proposal = await ai_service.transcribe_and_propose(
+        db, user, FAKE_AUDIO_MP3, "recording.mp3", client=client
+    )
+    result = await ai_service.execute(db, user, proposal.command)
+
+    assert await _count(db, Sale) == 1
+    sale = (await db.execute(select(Sale))).scalar_one()
+    assert sale.items[0].quantity == 10
+    assert result.message.startswith("Sale recorded: 10 x Coke")
+
+
+async def test_voice_ambiguous_product_asks_which_one(db):
+    user = await _make_user(db)
+    await _make_product(db, user, name="Golden Basmati Rice 5kg", stock=50)
+    await _make_product(db, user, name="Super Basmati Rice 5kg", stock=100)
+
+    command = _base_command("sale")
+    command["items"] = [
+        {
+            "product_name": "rice",
+            "quantity": 20,
+            "unit_price": None,
+            "total_amount": None,
+        }
+    ]
+    client = VoiceFakeClient("Sold 20 packs of rice", command)
+    transcript, proposal = await ai_service.transcribe_and_propose(
+        db, user, FAKE_AUDIO_MP3, "recording.mp3", client=client
+    )
+
+    assert proposal.disambiguation is not None
+    assert len(proposal.disambiguation) == 2
+    assert await _count(db, Sale) == 0
+
+
+async def test_voice_empty_transcript_is_rejected(db):
+    user = await _make_user(db)
+
+    client = VoiceFakeClient("   ", _base_command("other"))
+    with pytest.raises(HTTPException) as exc:
+        await ai_service.transcribe_and_propose(
+            db, user, FAKE_AUDIO_MP3, "recording.mp3", client=client
+        )
+    assert exc.value.status_code == 400
+    assert "could not hear" in exc.value.detail["title"]
+
+
+class OversizedAudioFakeClient:
+    def __init__(self):
+        self.audio = SimpleNamespace(transcriptions=SimpleNamespace(create=self._transcribe))
+
+    async def _transcribe(self, **kwargs):
+        return SimpleNamespace(text="test")
+
+    @property
+    def chat(self):
+        return SimpleNamespace(
+            completions=SimpleNamespace(create=self._create)
+        )
+
+    async def _create(self, **kwargs):
+        return SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(content=json.dumps(_base_command("other")))
+                )
+            ]
+        )
+
+
+async def test_voice_oversized_audio_rejected(db):
+    user = await _make_user(db)
+    oversized_audio = b"x" * (25 * 1024 * 1024 + 1)
+
+    client = OversizedAudioFakeClient()
+    with pytest.raises(HTTPException) as exc:
+        await ai_service.transcribe_and_propose(
+            db, user, oversized_audio, "recording.mp3", client=client
+        )
+    assert exc.value.status_code == 400
+    assert "too large" in exc.value.detail["title"]
+
+
+async def test_voice_invalid_magic_bytes_rejected(db):
+    user = await _make_user(db)
+    fake_audio = b"not-audio-data"
+
+    class InvalidMagicClient:
+        def __init__(self):
+            self.audio = SimpleNamespace(transcriptions=SimpleNamespace(create=self._transcribe))
+
+        async def _transcribe(self, **kwargs):
+            return SimpleNamespace(text="test")
+
+        @property
+        def chat(self):
+            return SimpleNamespace(
+                completions=SimpleNamespace(create=self._create)
+            )
+
+        async def _create(self, **kwargs):
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(content=json.dumps(_base_command("other")))
+                    )
+                ]
+            )
+
+    client = InvalidMagicClient()
+    with pytest.raises(HTTPException) as exc:
+        await ai_service.transcribe_and_propose(
+            db, user, fake_audio, "recording.mp3", client=client
+        )
+    assert exc.value.status_code == 400
+    assert "format does not match" in exc.value.detail["title"]
+
+
+async def test_voice_transcription_timeout_handled(db, monkeypatch):
+    user = await _make_user(db)
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "TRANSCRIPTION_TIMEOUT_SECONDS", 0.01)
+
+    class TimeoutClient:
+        def __init__(self):
+            self.audio = SimpleNamespace(transcriptions=SimpleNamespace(create=self._transcribe))
+
+        async def _transcribe(self, **kwargs):
+            await asyncio.sleep(0.1)
+            return SimpleNamespace(text="test")
+
+        @property
+        def chat(self):
+            return SimpleNamespace(
+                completions=SimpleNamespace(create=self._create)
+            )
+
+        async def _create(self, **kwargs):
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(content=json.dumps(_base_command("other")))
+                    )
+                ]
+            )
+
+    client = TimeoutClient()
+    with pytest.raises(HTTPException) as exc:
+        await ai_service.transcribe_and_propose(
+            db, user, FAKE_AUDIO_MP3, "recording.mp3", client=client
+        )
+    assert exc.value.status_code == 400
+    assert "timed out" in exc.value.detail["title"]
+
+
+async def test_voice_filename_sanitization(db):
+    user = await _make_user(db)
+    await _make_product(db, user, name="Coke", stock=100)
+
+    command = _base_command("sale")
+    command["items"] = [
+        {
+            "product_name": "Coke",
+            "quantity": 5,
+            "unit_price": None,
+            "total_amount": None,
+        }
+    ]
+    client = VoiceFakeClient("Sold 5 Coke", command)
+
+    malicious_filename = "../../../etc/passwd.mp3"
+    transcript, proposal = await ai_service.transcribe_and_propose(
+        db, user, FAKE_AUDIO_MP3, malicious_filename, client=client
+    )
+
+    assert transcript == "Sold 5 Coke"
+    assert proposal.requires_confirmation is True

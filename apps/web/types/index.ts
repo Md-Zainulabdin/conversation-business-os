@@ -172,6 +172,7 @@ export interface AICommand {
   notes?: string | null;
   date?: string | null;
   total_amount?: number | null;
+  conversation_id?: string | null;
 }
 
 export interface AIProposalResponse {
@@ -180,6 +181,10 @@ export interface AIProposalResponse {
   message: string;
   disambiguation?: ProductCandidate[] | null;
   issues?: ItemIssue[] | null;
+}
+
+export interface VoiceProposalResponse extends AIProposalResponse {
+  transcript: string;
 }
 
 export interface AIExecuteResponse {

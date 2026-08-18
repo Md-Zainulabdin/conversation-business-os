@@ -690,3 +690,35 @@ async def test_successful_sale_then_inquiry_reads_database(db):
         AICommand(intent="inquiry", items=[AIItem(product_name="Rice")]),
     )
     assert "90" in inquiry.message
+async def test_fuzzy_match_resolves_misspelled_product_name(db):
+    user = await _make_user(db)
+    product = await _make_product(db, user, name="Coca Cola 1.5L Bottle", stock=100)
+
+    command = _base_command("sale")
+    command["items"] = [
+        {"product_name": "cocaa cola", "quantity": 5, "unit_price": None, "total_amount": None}
+    ]
+    proposal = await ai_service.propose(
+        db, user, "Sold 5 cocaa cola", _fake_client(command)
+    )
+
+    assert proposal.requires_confirmation is True
+    assert proposal.command.items[0].product_id == str(product.id)
+    assert "Coca Cola 1.5L Bottle" in proposal.message
+
+
+async def test_fuzzy_match_stays_ambiguous_between_similar_products(db):
+    user = await _make_user(db)
+    await _make_product(db, user, name="Super Basmati Rice 5kg", stock=50)
+    await _make_product(db, user, name="Golden Basmati Rice 5kg", stock=100)
+
+    command = _base_command("sale")
+    command["items"] = [
+        {"product_name": "basmati rice", "quantity": 5, "unit_price": None, "total_amount": None}
+    ]
+    proposal = await ai_service.propose(
+        db, user, "Sold 5 basmati rice", _fake_client(command)
+    )
+
+    assert proposal.disambiguation is not None
+    assert len(proposal.disambiguation) == 2
