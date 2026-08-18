@@ -1,74 +1,14 @@
 # Conversational Business OS (CBO)
 
-> A production-ready side project built to learn modern software engineering while solving a real-world problem for small retailers.
+> A production-ready side project that lets small retailers run their business by talking instead of filling ERP forms.
 
 ---
 
-# Project Vision
+# Intro
 
-This project aims to build a **Conversational Business Operating System** where retailers can manage their business through **WhatsApp** instead of traditional ERP software.
+CBO is a **conversational business operating system**. The long-term vision: a shopkeeper manages sales, purchases, expenses, and stock through simple messages and voice notes rather than a dashboard of forms.
 
-Instead of opening a dashboard and filling forms, users should be able to send messages like:
-
-> Sold 20 packs of rice.
-
-> Bought 10 cartons of Coke.
-
-> Customer Ali paid 5,000.
-
-The system will understand the message, validate it, convert it into structured data, and store it in the database.
-
-The long-term goal is that users can perform most daily business operations through conversation while still having a dashboard available for reports and management.
-
----
-
-# Primary Objectives
-
-This project has two goals.
-
-## 1. Learn
-
-Learn modern software engineering including:
-
-- FastAPI
-- Next.js
-- TurboRepo
-- PostgreSQL
-- Redis
-- Docker
-- GitHub Actions
-- CI/CD
-- WhatsApp Cloud API
-- OpenAI APIs
-- Speech-to-Text
-- Prompt Engineering
-- Production Deployment
-
-## 2. Build
-
-Build a portfolio-quality application that feels like a real product rather than a tutorial project.
-
----
-
-# Core Principles
-
-## Keep everything simple.
-
-We are a single developer.
-
-Avoid unnecessary abstraction.
-
-Avoid overengineering.
-
-Refactor only when needed.
-
----
-
-## AI only understands language.
-
-The LLM should never directly modify the database.
-
-Correct flow:
+The core architectural rule: **AI only understands language — it never touches the database.**
 
 ```
 User Message
@@ -82,631 +22,97 @@ Business Logic
 Database
 ```
 
----
+The AI turns free-text into a structured proposal; the backend validates it, the user confirms, and only then is anything written. Business logic always belongs in the backend.
 
-## Business logic belongs in the backend.
+# Description
 
-The AI is responsible for understanding user input.
+A web app (Next.js frontend + FastAPI backend) with full retail features:
 
-FastAPI is responsible for deciding what should happen.
-
----
-
-## Build one feature at a time.
-
-Complete each phase before starting the next.
-
-Do not build future features early.
+- **Secure accounts** with per-user data isolation (JWT + bcrypt).
+- **Inventory**: products, categories, customers, and automatic stock tracking with low-stock thresholds.
+- **Transactions**: multi-item sales, purchases, and expenses — stock adjusts automatically, with integrity guards on create/edit/delete.
+- **Dashboard**: total sales, stock, customers, and a searchable recent-activity feed (24h / 7d / 30d / 12m periods).
+- **AI assistant**: type plain language ("Sold 20 packs of rice") and the assistant proposes the transaction, asks for confirmation (and disambiguation when ambiguous), then records it — with idempotency and conversation memory.
+- **81 passing automated tests** covering stock integrity, per-user isolation, and AI safety guardrails. CI/CD via GitHub Actions.
 
 ---
 
-# Tech Stack
+# Current Portfolio Plan
 
-## Monorepo
+> Approved plan to take the project from "great progress" (Phases 0-3) to a complete, portfolio-ready, deployed application. Executed in order A → F.
 
-- TurboRepo
+## Current State
 
-## Frontend
+- Phase 0 (Foundation), Phase 1 (Inventory), Phase 2 (Sales), Phase 3 (AI) — **done**
+- Phase 4 (WhatsApp) — **paused** (de-prioritized; pipeline is transport-agnostic so it stays an option)
+- Phase 5 (Voice) — **next** (via Groq Whisper API, reusing the existing Groq key)
+- Phase 6 (Reports) — **partially done** (only the dashboard overview exists)
 
-- Next.js
-- TypeScript
-- Tailwind CSS
-- shadcn/ui
+## Phase A — Security & Repo Hygiene (½ day)
 
-## Backend
+1. Remove the committed Groq API key from `apps/api/.env`. Rotate the key. Keep `.env` git-ignored; document only `.env.example`.
+2. Fix `scripts/seed.py` — it still posts the old flat-body shape and fails against the current multi-item `items[]` API.
+3. Enforce `is_active` in `get_current_user` (the flag exists on the model but is never checked).
+4. Remove stale artifacts: orphaned code block in `tests/test_ai.py` (~line 441), outdated `.pytest_cache` entries.
+5. Make dead/decorative UI real or remove it: hardcoded dashboard date-range button, non-functional header search input, decorative notification bell, and the missing client-side stock check on the sales edit page (the New form has it).
 
-- FastAPI
-- Python 3.13+
-- SQLAlchemy
-- Alembic
-- Pydantic
+## Phase B — Reports & Analytics (Phase 6) (2-3 days)
 
-## Database
+Backend (`apps/api`):
+- Extend `GET /stats/overview` (or add `/stats/reports`) to return per period: revenue vs expenses (profit), daily sales summary, low-stock alerts (products where `stock_quantity <= minimum_stock`), top-selling products, top customers, and category breakdowns.
 
-- PostgreSQL (Neon)
+Frontend (`apps/web`):
+- Rebuild the placeholder `/reports` page with a period selector (reuse the 24h/7d/30d/12m pattern): KPI cards (Revenue, Expenses, Profit, Low-stock count), charts (revenue-vs-expense, top products, expense category pie) using **Recharts** — the only new dependency, justified by charts being the key visible win — plus a low-stock alerts list.
+- Make the dashboard date-range control functional (drive the period selector).
 
-## Cache
+Tests:
+- Add `test_stats.py` covering profit math, low-stock thresholds, and per-user scoping of report data.
 
-- Redis (Upstash)
+## Phase C — Voice Agent (Phase 5) (1-2 days)
 
-## AI
+Backend:
+- Add `POST /ai/voice` accepting a multipart audio upload.
+- Transcribe with **Groq Whisper API** (reuses the existing `GROQ_API_KEY`, e.g. `whisper-large-v3` / `distil-whisper-large-v3`).
+- Feed the transcript straight into the existing `ai_service.propose()` → same confirm/execute flow. **Zero new business logic.** Reuse the same idempotency + session guards.
 
-- OpenAI
+Frontend:
+- Mic record button on the assistant chat (`MediaRecorder` → upload → transcript shown as a user bubble → normal confirmation flow).
 
-## Messaging
+Tests:
+- Mock the transcription client; verify a voice transcript produces the same proposal/execute behavior as typed text (extend `test_ai.py`).
 
-- WhatsApp Business Cloud API
+## Phase D — Production Hardening (2 days)
 
-## Speech
+1. Move AI session history + idempotency from in-memory to **Redis** (`REDIS_URL` is already configured but unused). Safe across multiple workers.
+2. Pagination on list endpoints (`limit`/`offset` or cursor) + pagination control in the shared `DataTable`.
+3. Real Settings page — editable store name, currency, password change, account actions (replaces the static cards).
+4. Auth + HTTP-level `TestClient` tests — currently zero tests hit the routes.
+5. Notification bell → low-stock alerts from Phase B.
 
-- OpenAI Whisper
+## Phase E — Deployment (1 day)
 
-## Deployment
+- Backend → **Railway**: `Dockerfile` exists. Add Neon `DATABASE_URL`, Upstash `REDIS_URL`, `GROQ_API_KEY`, `SECRET_KEY`, Whisper key to the service env. Run `alembic upgrade head` as a release command.
+- Frontend → **Vercel**: connect the repo; `NEXT_PUBLIC_API_URL` pointing at the Railway URL.
+- CI: add a deploy job to `.github/workflows/ci.yml` on merge to `main` (keep the existing quality job). This completes the CI/CD story from the roadmap.
 
-Frontend
+## Phase F — Optional Extras (time permitting)
 
-- Vercel
+- Read-only detail/view pages (`/products/[id]`, `/sales/[id]`, …) — only list + edit exist today.
+- Weekly report email or PDF export.
+- WhatsApp integration later (the propose/execute pipeline is already transport-agnostic).
 
-Backend
+## Sequencing & Effort
 
-- Railway
+| Order | Stream | Effort |
+|-------|--------|--------|
+| 1 | A — Security & hygiene | ½ day |
+| 2 | B — Reports | 2-3 days |
+| 3 | C — Voice agent | 1-2 days |
+| 4 | D — Hardening | 2 days |
+| 5 | E — Deployment | 1 day |
+| 6 | F — Extras | time permitting |
 
-Database
-
-- Neon
-
-Redis
-
-- Upstash
-
----
-
-# Project Structure
-
-```
-conversation-business-os/
-
-apps/
-│
-├── api/
-│
-└── web/
-
-packages/
-│
-├── shared/
-│
-└── config/
-
-docs/
-
-.github/
-
-docker-compose.yml
-
-README.md
-
-turbo.json
-```
-
----
-
-# Backend Structure
-
-```
-apps/api/
-
-app/
-
-├── main.py
-
-├── core/
-│   ├── config.py
-│   ├── database.py
-│   └── security.py
-
-├── models/
-
-├── schemas/
-
-├── services/
-
-├── routes/
-
-├── integrations/
-│   ├── openai.py
-│   ├── whatsapp.py
-│   └── speech.py
-
-└── utils/
-```
-
----
-
-# Frontend Structure
-
-```
-apps/web/
-
-app/
-
-components/
-
-hooks/
-
-lib/
-
-types/
-
-public/
-```
-
----
-
-# Development Roadmap
-
-## Phase 0 — Foundation
-
-Goal
-
-Set up the project.
-
-Tasks
-
-- TurboRepo
-- FastAPI
-- Next.js
-- PostgreSQL
-- Docker
-- GitHub
-- GitHub Actions
-- Local development environment
-
-Deliverable
-
-A running application with frontend and backend connected.
-
----
-
-## Phase 1 — Inventory System
-
-Goal
-
-Build a traditional web application first.
-
-Features
-
-- Authentication
-- Products
-- Categories
-- Inventory
-- Basic Dashboard
-
-Deliverable
-
-Users can manage inventory through the web interface.
-
----
-
-## Phase 2 — Sales
-
-Features
-
-- Record sales
-- Record purchases
-- Record expenses
-
-Deliverable
-
-Basic business management system.
-
----
-
-## Phase 3 — AI
-
-Goal
-
-Allow natural language interaction.
-
-Examples
-
-> Sold 20 Coke
-
-↓
-
-```json
-{
-  "intent": "sale",
-  "product": "Coke",
-  "quantity": 20
-}
-```
-
-The AI should only return structured JSON.
-
-The backend validates and performs the action.
-
----
-
-## Phase 4 — WhatsApp
-
-Features
-
-- Receive WhatsApp messages
-- Process messages
-- Reply with confirmations
-
-Example
-
-User
-
-> Sold 20 Coke
-
-System
-
-> Recorded the sale of 20 Coke bottles.
-
----
-
-## Phase 5 — Voice
-
-Features
-
-- Receive voice notes
-- Speech-to-text
-- Send transcript to AI
-- Execute business logic
-
----
-
-## Phase 6 — Reports
-
-Features
-
-- Daily summary
-- Revenue
-- Inventory status
-- Low stock alerts
-
----
-
-# Coding Guidelines
-
-- Keep code readable.
-- Prefer simple solutions.
-- Use meaningful names.
-- Avoid premature optimization.
-- Keep functions small.
-- Write reusable code only when duplication becomes a real problem.
-- Add comments only when the code is not self-explanatory.
-
----
-
-# Git Workflow
-
-Use feature branches.
-
-Example
-
-```
-main
-
-feature/setup
-
-feature/products
-
-feature/inventory
-
-feature/openai
-
-feature/whatsapp
-```
-
-Merge into `main` only after the feature is complete.
-
----
-
-# Commit Convention
-
-Use Conventional Commits.
-
-Examples
-
-```
-feat: add product CRUD
-
-feat: integrate OpenAI
-
-fix: inventory calculation
-
-docs: update roadmap
-
-refactor: simplify services
-```
-
----
-
-# CI/CD
-
-Every pull request should automatically:
-
-- Install dependencies
-- Lint
-- Build the frontend
-- Run backend tests (when available)
-
-Every merge to `main` should automatically deploy:
-
-- Frontend → Vercel
-- Backend → Railway
-
----
-
-# Rules for the Coding Agent
-
-When generating code:
-
-1. Follow the current phase only.
-2. Do not implement future phases unless requested.
-3. Keep the architecture simple and easy to understand.
-4. Prefer clarity over cleverness.
-5. Explain important decisions briefly when introducing new patterns.
-6. Use production-ready practices, but avoid unnecessary complexity.
-7. Keep files organized and reasonably small.
-8. Do not introduce new libraries unless they solve a clear problem.
-9. Ask before making major architectural changes.
-10. Prioritize maintainability over abstraction.
-
----
-
-# End Goal
-
-By the end of this project we should have a production-ready application where a retailer can:
-
-- Manage inventory
-- Record sales
-- Record purchases
-- Record expenses
-- Interact using WhatsApp
-- Send voice notes
-- View reports from a web dashboard
-
-while the codebase remains simple, clean, and easy for a single developer to understand and maintain.
-
----
-
-# Database Schema (MVP)
-
-> This document defines the initial database schema for the **Conversational Business OS**. The schema is intentionally kept simple to support the current project scope. Additional entities will be introduced only when required by future features.
-
----
-
-# General Rules
-
-- Every table uses **UUID** as its primary key.
-- Every table includes `created_at`.
-- Tables that can be modified also include `updated_at`.
-- Relationships should use foreign keys.
-- Keep the schema simple and avoid premature optimization.
-
----
-
-# 1. Product
-
-Represents an item that can be purchased and sold.
-
-| Field | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| name | String | Product name |
-| sku | String | Unique stock keeping unit |
-| category | String | Product category |
-| unit | String | Unit of measurement (Piece, Pack, KG, Litre, etc.) |
-| purchase_price | Decimal | Buying price |
-| selling_price | Decimal | Selling price |
-| stock_quantity | Integer | Current available stock |
-| minimum_stock | Integer | Low stock threshold |
-| created_at | Timestamp | Record creation time |
-| updated_at | Timestamp | Last update time |
-
----
-
-# 2. Customer
-
-Represents customers who purchase products.
-
-| Field | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| name | String | Customer name |
-| phone | String | Phone number |
-| address | String | Customer address (Optional) |
-| created_at | Timestamp | Record creation time |
-| updated_at | Timestamp | Last update time |
-
----
-
-# 3. Sale
-
-Represents a single sales transaction.
-
-> **MVP Assumption:** One sale contains one product. If multiple products per sale are needed in the future, this entity will be refactored into `Sale` and `SaleItem`.
-
-| Field | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| customer_id | UUID (Nullable) | Reference to Customer |
-| product_id | UUID | Reference to Product |
-| quantity | Integer | Quantity sold |
-| unit_price | Decimal | Selling price at the time of sale |
-| total_amount | Decimal | Total sale amount |
-| sale_date | Timestamp | Date and time of sale |
-| notes | Text | Optional remarks |
-| created_at | Timestamp | Record creation time |
-
-Relationship
-
-```
-Customer (1)
-      │
-      │
-      ▼
-Sale (Many)
-
-Product (1)
-      │
-      ▼
-Sale (Many)
-```
-
----
-
-# 4. Purchase
-
-Represents purchasing inventory from suppliers.
-
-> **MVP Assumption:** Supplier information is stored as plain text. A dedicated Supplier table can be added later.
-
-| Field | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| product_id | UUID | Reference to Product |
-| supplier_name | String | Supplier name |
-| quantity | Integer | Quantity purchased |
-| purchase_price | Decimal | Purchase price per unit |
-| total_amount | Decimal | Total purchase amount |
-| purchase_date | Timestamp | Purchase date |
-| notes | Text | Optional remarks |
-| created_at | Timestamp | Record creation time |
-
-Relationship
-
-```
-Product (1)
-      │
-      ▼
-Purchase (Many)
-```
-
----
-
-# 5. Expense
-
-Represents business expenses.
-
-| Field | Type | Description |
-|--------|------|-------------|
-| id | UUID | Primary key |
-| title | String | Expense title |
-| category | String | Expense category |
-| amount | Decimal | Expense amount |
-| expense_date | Timestamp | Date of expense |
-| notes | Text | Optional remarks |
-| created_at | Timestamp | Record creation time |
-
-Example Categories
-
-- Electricity
-- Internet
-- Transport
-- Salary
-- Miscellaneous
-
----
-
-# Inventory Rules
-
-Inventory is **not** stored in a separate table during the MVP.
-
-Instead:
-
-- Every Product contains a `stock_quantity`.
-- Creating a Purchase **increases** stock.
-- Creating a Sale **decreases** stock.
-- Editing or deleting a Sale/Purchase must update stock accordingly.
-
-Example
-
-```
-Rice Stock = 100
-
-Purchase 20
-
-↓
-
-Stock = 120
-
-Sale 15
-
-↓
-
-Stock = 105
-```
-
----
-
-# Current Entity Relationships
-
-```
-                +-------------+
-                |  Customer   |
-                +-------------+
-                       |
-                       |
-                       ▼
-                   +--------+
-                   |  Sale  |
-                   +--------+
-                       ▲
-                       |
-                       |
-+-----------+     +---------+
-| Purchase  | --> | Product |
-+-----------+     +---------+
-                       ▲
-                       |
-                       |
-                  +----------+
-                  | Expense  |
-                  +----------+
-```
-
----
-
-# Future Entities (Not Part of MVP)
-
-These entities will only be introduced when their corresponding features are implemented.
-
-### Phase 3
-- User (Authentication)
-
-### Phase 4
-- Conversation
-- Message
-
-### Phase 5
-- AIRequest
-
-### Phase 6+
-- Supplier
-- Organization
-- InventoryTransaction
-- Notifications
-- Audit Logs
-
----
-
-# Final MVP Scope
-
-The first version of the application will consist of only **five business entities**:
-
-- Product
-- Customer
-- Sale
-- Purchase
-- Expense
-
-The goal is to keep the database small, understandable, and easy to extend as the project evolves.
+Total ≈ 1.5 weeks. End goal: a live, deployed, voice-enabled retail management app with reports, ready to demo and link from a resume.
 
 ---
 

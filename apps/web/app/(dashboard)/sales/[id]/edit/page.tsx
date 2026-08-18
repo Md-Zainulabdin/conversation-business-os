@@ -73,6 +73,8 @@ export default function EditSalePage() {
       .finally(() => setLoading(false));
   }, [params.id, router]);
 
+  const productById = (id: string) => products.find((p) => p.id === id);
+
   const updateItem = (key: number, patch: Partial<LineItem>) => {
     setItems((prev) =>
       prev.map((item) => (item.key === key ? { ...item, ...patch } : item))
@@ -110,6 +112,13 @@ export default function EditSalePage() {
       const qty = parseInt(item.quantity);
       if (!qty || qty <= 0) {
         setError("Quantity must be greater than 0");
+        return;
+      }
+      const product = productById(item.productId);
+      if (product && qty > product.stock_quantity) {
+        setError(
+          `Insufficient stock for ${product.name}. Available: ${product.stock_quantity}`
+        );
         return;
       }
     }
@@ -198,8 +207,10 @@ export default function EditSalePage() {
             </div>
 
             {items.map((item, index) => {
+              const product = productById(item.productId);
               const qty = parseInt(item.quantity) || 0;
               const price = parseFloat(item.unitPrice) || 0;
+              const stockShort = product && qty > product.stock_quantity;
               return (
                 <div
                   key={item.key}
@@ -257,6 +268,12 @@ export default function EditSalePage() {
                       <Trash2 className="size-4" />
                     </Button>
                   </div>
+                  {product && stockShort && (
+                    <p className="mt-1.5 text-xs text-destructive">
+                      Only {product.stock_quantity} {product.unit} in stock.
+                      You entered {qty}.
+                    </p>
+                  )}
                 </div>
               );
             })}

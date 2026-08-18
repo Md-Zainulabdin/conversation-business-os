@@ -1,13 +1,16 @@
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
 
 from app.core.config import settings
+from app.core.dependencies import get_current_user
+from app.core.security import create_access_token
 from app.models.customer import Customer
 from app.models.product import Product
 from app.models.user import User
@@ -290,3 +293,28 @@ async def test_idempotency_is_scoped_per_user(db):
     assert idempotency_store.get(f"{user_b.id}:key") is None
     assert idempotency_store.get(f"{user_a.id}:key") == response_a
     idempotency_store._results.clear()
+
+
+async def _credentials_for(user: User) -> HTTPAuthorizationCredentials:
+    token = create_access_token(
+        data={"sub": str(user.id)},
+        expires_delta=timedelta(minutes=5),
+    )
+    return HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+
+async def test_inactive_user_is_rejected(db):
+    user = await _make_user(db)
+    user.is_active = False
+    await db.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        await get_current_user(await _credentials_for(user), db)
+    assert exc.value.status_code == 401
+
+
+async def test_active_user_is_allowed(db):
+    user = await _make_user(db)
+
+    current = await get_current_user(await _credentials_for(user), db)
+    assert current.id == user.id

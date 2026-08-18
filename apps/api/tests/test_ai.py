@@ -438,22 +438,6 @@ async def test_propose_sale_ambiguous_pack_of_rice_asks_which_rice(db):
     assert await _count(db, Sale) == 0
 
 
-
-    user = await _make_user(db)
-    golden = await _make_product(db, user, name="Golden Basmati Rice 5kg", stock=50)
-    await _make_product(db, user, name="Super Basmati Rice 5kg", stock=100)
-
-    command = AICommand(
-        intent="sale", items=[AIItem(product_name="rice", quantity=20)]
-    )
-    proposal = await ai_service.resolve(db, user, command, str(golden.id))
-
-    assert proposal.requires_confirmation is True
-    assert "Golden Basmati Rice 5kg" in proposal.message
-    assert proposal.command.items[0].product_id == str(golden.id)
-    assert await _count(db, Sale) == 0
-
-
 async def test_resolve_multi_product_applies_selection_to_ambiguous_item(db):
     user = await _make_user(db)
     golden = await _make_product(db, user, name="Golden Basmati Rice 5kg", stock=50)

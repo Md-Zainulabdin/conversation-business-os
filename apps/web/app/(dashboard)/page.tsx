@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Calendar } from "lucide-react";
 import { api } from "@/lib/api";
 import { Transaction } from "@/types";
 import { TableToolbar, type FilterConfig, type FilterPill } from "@/components/shared/table-toolbar";
@@ -159,14 +158,6 @@ export default function DashboardPage() {
             </button>
           ))}
         </div>
-
-        <button
-          type="button"
-          className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Calendar className="h-3.5 w-3.5" />
-          <span>1 Jan 2026 - 31 Dec 2026</span>
-        </button>
       </div>
 
       <TableToolbar

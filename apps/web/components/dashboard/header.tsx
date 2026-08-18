@@ -4,8 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Menu,
-  Search,
-  Bell,
   LogOut,
   User,
   SlidersHorizontal,
@@ -13,7 +11,6 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/lib/store/auth";
 
 interface HeaderProps {
@@ -32,8 +29,8 @@ export function Header({ onMobileMenuOpen }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b border-border/80 bg-card/90 px-4 backdrop-blur-xs sm:px-6">
-      {/* Left side: Mobile Hamburger & Search input */}
-      <div className="flex items-center gap-3 lg:gap-4 flex-1 max-w-md">
+      {/* Left side: Mobile Hamburger */}
+      <div className="flex items-center gap-3 lg:gap-4">
         <Button
           variant="ghost"
           size="icon"
@@ -43,29 +40,10 @@ export function Header({ onMobileMenuOpen }: HeaderProps) {
         >
           <Menu className="h-4 w-4" />
         </Button>
-
-        {/* Minimal Search Bar */}
-        <div className="relative w-full">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <Input
-            type="search"
-            placeholder="Search..."
-            className="h-8 w-full bg-muted/30 pl-8 pr-3 text-xs shadow-none border-border/60 focus-visible:bg-background"
-          />
-        </div>
       </div>
 
       {/* Right side controls */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Notification Bell */}
-        <button
-          type="button"
-          className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          aria-label="Notifications"
-        >
-          <Bell className="h-3.5 w-3.5" />
-          <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        </button>
 
         {/* User Profile Avatar Pill */}
         <div className="relative">

@@ -160,8 +160,15 @@ def seed_purchases(token, products):
         print("  skip purchases: records already exist")
         return
     for p in PURCHASES:
-        body = {k: v for k, v in p.items() if k != "product_name"}
-        body["product_id"] = id_by_name(products, p["product_name"])
+        body = {k: v for k, v in p.items() if k in ("supplier_name", "purchase_date", "notes")}
+        body["items"] = [
+            {
+                "product_id": id_by_name(products, p["product_name"]),
+                "quantity": p["quantity"],
+                "purchase_price": p["purchase_price"],
+                "total_amount": p["total_amount"],
+            }
+        ]
         api("POST", "/purchases", token=token, body=body)
         print(f"  created purchase: {p['supplier_name']}")
 
@@ -171,8 +178,15 @@ def seed_sales(token, products, customers):
         print("  skip sales: records already exist")
         return
     for s in SALES:
-        body = {k: v for k, v in s.items() if k not in ("product_name", "customer_name")}
-        body["product_id"] = id_by_name(products, s["product_name"])
+        body = {k: v for k, v in s.items() if k not in ("product_name", "customer_name", "quantity", "unit_price", "total_amount")}
+        body["items"] = [
+            {
+                "product_id": id_by_name(products, s["product_name"]),
+                "quantity": s["quantity"],
+                "unit_price": s["unit_price"],
+                "total_amount": s["total_amount"],
+            }
+        ]
         if s.get("customer_name"):
             body["customer_id"] = id_by_name(customers, s["customer_name"])
         api("POST", "/sales", token=token, body=body)
