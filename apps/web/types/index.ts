@@ -80,6 +80,52 @@ export interface Transaction {
   date: string;
 }
 
+export interface DailySalesItem {
+  date: string;
+  amount: number;
+}
+
+export interface LowStockItem {
+  id: string;
+  name: string;
+  sku: string;
+  unit: string;
+  stock_quantity: number;
+  minimum_stock: number;
+}
+
+export interface TopProductItem {
+  name: string;
+  quantity: number;
+  revenue: number;
+}
+
+export interface TopCustomerItem {
+  name: string;
+  spend: number;
+}
+
+export interface CategoryBreakdownItem {
+  category: string;
+  amount: number;
+}
+
+export interface OverviewData {
+  total_sales: number;
+  expenses_total: number;
+  profit: number;
+  stock_items: number;
+  active_customers: number;
+  low_stock_count: number;
+  daily_sales: DailySalesItem[];
+  low_stock: LowStockItem[];
+  top_products: TopProductItem[];
+  top_customers: TopCustomerItem[];
+  category_breakdown: CategoryBreakdownItem[];
+  expense_breakdown: CategoryBreakdownItem[];
+  transactions: Transaction[];
+}
+
 export type CommandIntent = "sale" | "purchase" | "expense" | "inquiry" | "other";
 
 export interface ProductCandidate {

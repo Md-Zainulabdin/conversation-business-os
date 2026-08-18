@@ -10,7 +10,7 @@
 
 The architecture follows one strict rule: **AI only understands language — it never touches the database.** Every message becomes a structured proposal that the system validates, the user confirms, and only then is saved. This separation of "understanding" (AI) from "deciding" (backend business logic) is the core engineering idea of the project.
 
-Current state: a **production-quality web app** with a **genuinely conversational AI assistant**, backed by **81 passing automated tests**, **CI/CD on GitHub Actions**, and **multi-user data isolation**.
+Current state: a **production-quality web app** with a **genuinely conversational AI assistant**, backed by **91 passing automated tests**, **CI/CD on GitHub Actions**, and **multi-user data isolation**.
 
 ---
 
@@ -63,7 +63,7 @@ Current state: a **production-quality web app** with a **genuinely conversationa
 - Fully responsive (sidebar → mobile drawer), loading/empty/error states everywhere, PKR currency formatting throughout.
 
 ### 2.8 Testing & Verification
-- **81 automated tests passing** (`python -m pytest`): stock integrity, per-user isolation, AI safety guardrails, schema validation, and AI happy paths.
+- **91 automated tests passing** (`python -m pytest`): stock integrity, per-user isolation, AI safety guardrails, schema validation, and AI happy paths.
 - The AI safety suite proves the system **never** writes bad data: failed transactions leave stock unchanged, ambiguous products are never guessed, duplicate lines are handled, and idempotency holds.
 
 ---
@@ -129,4 +129,4 @@ Ranked by impact. Items marked ★ are the highest-value additions.
 
 ---
 
-*Status verified against the repository on 16 Aug 2026. All 81 backend tests pass; the app builds and lints clean in CI.*
+*Status verified against the repository on 18 Aug 2026. All 91 backend tests pass; the app builds and lints clean in CI.*

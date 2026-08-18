@@ -2,17 +2,10 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { api } from "@/lib/api";
-import { Transaction } from "@/types";
+import { OverviewData, Transaction } from "@/types";
 import { TableToolbar, type FilterConfig, type FilterPill } from "@/components/shared/table-toolbar";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { useDebounce } from "@/lib/hooks/use-debounce";
-
-interface OverviewData {
-  total_sales: number;
-  stock_items: number;
-  active_customers: number;
-  transactions: Transaction[];
-}
 
 export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("30d");

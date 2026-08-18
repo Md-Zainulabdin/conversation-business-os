@@ -33,7 +33,7 @@ A web app (Next.js frontend + FastAPI backend) with full retail features:
 - **Transactions**: multi-item sales, purchases, and expenses — stock adjusts automatically, with integrity guards on create/edit/delete.
 - **Dashboard**: total sales, stock, customers, and a searchable recent-activity feed (24h / 7d / 30d / 12m periods).
 - **AI assistant**: type plain language ("Sold 20 packs of rice") and the assistant proposes the transaction, asks for confirmation (and disambiguation when ambiguous), then records it — with idempotency and conversation memory.
-- **81 passing automated tests** covering stock integrity, per-user isolation, and AI safety guardrails. CI/CD via GitHub Actions.
+- **91 passing automated tests** covering stock integrity, per-user isolation, AI safety guardrails, and report analytics. CI/CD via GitHub Actions.
 
 ---
 
