@@ -1,11 +1,12 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.rate_limit import get_rate_limiter
 from app.models.user import User
 from app.schemas.ai import (
     AICommandRequest,
@@ -26,11 +27,30 @@ def _server_conversation_id(client_id: str | None) -> str:
     return client_id or uuid.uuid4().hex
 
 
+async def _check_ai_rate_limit(
+    request: Request,
+    response: Response,
+    current_user: User = Depends(get_current_user),
+) -> None:
+    limiter = get_rate_limiter()
+    key = f"ai:{current_user.id}"
+    allowed, headers = limiter.check(key)
+    for k, v in headers.items():
+        response.headers[k] = v
+    if not allowed:
+        logger.warning("AI rate limit exceeded: user=%s", current_user.id)
+        raise HTTPException(
+            status_code=429,
+            detail="Too many AI requests. Please wait before sending more.",
+        )
+
+
 @router.post("/commands", response_model=AIProposalResponse)
 async def propose_command(
     data: AICommandRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _rate_limit: None = Depends(_check_ai_rate_limit),
 ):
     conversation_id = _server_conversation_id(data.conversation_id)
     logger.info(
@@ -62,6 +82,7 @@ async def propose_voice_command(
     conversation_id: str | None = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _rate_limit: None = Depends(_check_ai_rate_limit),
 ):
     file_bytes = await file.read()
     if len(file_bytes) > MAX_VOICE_UPLOAD_BYTES:
@@ -112,6 +133,7 @@ async def resolve_command(
     data: AIResolveRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _rate_limit: None = Depends(_check_ai_rate_limit),
 ):
     logger.info(
         "AI resolve request: user=%s product_id=%s",
@@ -126,6 +148,7 @@ async def execute_command(
     data: AIExecuteRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _rate_limit: None = Depends(_check_ai_rate_limit),
 ):
     logger.info(
         "AI execute request: user=%s intent=%s idempotency_key=%s",

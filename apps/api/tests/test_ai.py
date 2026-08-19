@@ -8,6 +8,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy import select
 
+from app.core.circuit_breaker import reset_circuit_breakers
 from app.core.config import settings
 from app.models.customer import Customer
 from app.models.product import Product
@@ -16,6 +17,13 @@ from app.models.sale import Sale, SaleItem
 from app.models.user import User
 from app.schemas.ai import AICommand, AIItem
 from app.services import ai as ai_service
+
+
+@pytest.fixture(autouse=True)
+def _reset_circuit_breakers():
+    reset_circuit_breakers()
+    yield
+    reset_circuit_breakers()
 
 # Valid MP3 magic bytes for testing (ID3v2 header)
 FAKE_AUDIO_MP3 = b"ID3\x03\x00\x00\x00\x00\x00fake-audio-data"

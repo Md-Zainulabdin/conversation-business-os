@@ -20,11 +20,15 @@ class Settings(BaseSettings):
     GROQ_WHISPER_MODEL: str = "whisper-large-v3-turbo"
 
     TRANSCRIPTION_TIMEOUT_SECONDS: float = 60.0
+    CHAT_COMPLETION_TIMEOUT_SECONDS: float = 30.0
 
     FUZZY_MATCH_THRESHOLD: float = 0.78
     FUZZY_TIE_THRESHOLD: float = 0.05
 
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"]
+
+    AI_RATE_LIMIT_PER_MINUTE: int = 30
+    AI_RATE_LIMIT_PER_HOUR: int = 200
 
     model_config = {
         "env_file": BACKEND_DIR / ".env",

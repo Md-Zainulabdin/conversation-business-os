@@ -13,6 +13,11 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.circuit_breaker import (
+    CircuitBreakerOpenError,
+    call_with_chat_breaker,
+    call_with_transcription_breaker,
+)
 from app.core.config import settings
 from app.integrations.groq import get_groq_client, transcribe_audio
 from app.models.customer import Customer
@@ -372,30 +377,55 @@ async def _parse_command(
 ) -> AICommand:
     for attempt in range(3):
         try:
-            response = await client.chat.completions.create(
-                model=settings.GROQ_MODEL,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": _system_prompt(products, customers, history),
+            async def _create_completion():
+                return await client.chat.completions.create(
+                    model=settings.GROQ_MODEL,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": _system_prompt(products, customers, history),
+                        },
+                        {"role": "user", "content": message},
+                    ],
+                    response_format={
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "ai_command",
+                            "strict": True,
+                            "schema": AI_COMMAND_SCHEMA,
+                        },
                     },
-                    {"role": "user", "content": message},
-                ],
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "ai_command",
-                        "strict": True,
-                        "schema": AI_COMMAND_SCHEMA,
-                    },
-                },
-                max_tokens=1000,
+                    max_tokens=1000,
+                )
+
+            response = await call_with_chat_breaker(
+                asyncio.wait_for,
+                _create_completion(),
+                timeout=settings.CHAT_COMPLETION_TIMEOUT_SECONDS,
             )
             content = response.choices[0].message.content
             if not content:
                 raise _RetryableParse
             data = json.loads(content)
             return AICommand.model_validate(data)
+        except CircuitBreakerOpenError as exc:
+            logger.warning("Groq chat circuit breaker open: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail="AI assistant is temporarily unavailable. Please try again later.",
+            ) from exc
+        except TimeoutError as exc:
+            logger.warning(
+                "Groq chat completion timed out on attempt %d after %ds",
+                attempt + 1,
+                settings.CHAT_COMPLETION_TIMEOUT_SECONDS,
+            )
+            if attempt >= 2:
+                logger.error("Failed to parse command after 3 attempts (timeouts): %s", message[:100])
+                raise HTTPException(
+                    status_code=502,
+                    detail="AI assistant is busy right now. Please try again.",
+                ) from exc
         except BadRequestError as exc:
             body = exc.body or {}
             if body.get("code") != "json_validate_failed":
@@ -1064,9 +1094,15 @@ async def transcribe_and_propose(
 
     client = client or get_groq_client()
     try:
-        transcript = await transcribe_audio(
-            client, file_bytes, filename, content_type=content_type
+        transcript = await call_with_transcription_breaker(
+            transcribe_audio, client, file_bytes, filename, content_type=content_type
         )
+    except CircuitBreakerOpenError as exc:
+        logger.warning("Groq transcription circuit breaker open: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="AI assistant voice processing is temporarily unavailable. Please try again later.",
+        ) from exc
     except ValueError as exc:
         logger.warning("Transcription validation error: %s", exc)
         raise _structured_error(status_code=400, title=str(exc)) from exc

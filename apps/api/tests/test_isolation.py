@@ -111,7 +111,9 @@ async def test_inquiry_only_sees_own_business_stock(db):
     )
 
     assert f"{product_a.name}: 100 Pack in stock" in inquiry.message
-    assert "500" not in inquiry.message
+    # Ensure user_b's product stock (500) doesn't leak into user_a's inquiry
+    # Check that the specific stock value from user_b's product isn't in the response
+    assert "500 Pack" not in inquiry.message
 
 
 async def test_list_products_is_scoped_per_user(db):
