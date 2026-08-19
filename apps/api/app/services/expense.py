@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.expense import Expense
@@ -9,13 +9,16 @@ from app.models.user import User
 from app.schemas.expense import ExpenseCreate, ExpenseUpdate
 
 
-async def list_expenses(db: AsyncSession, current_user: User) -> list[Expense]:
-    result = await db.execute(
-        select(Expense)
-        .where(Expense.user_id == current_user.id)
-        .order_by(Expense.expense_date.desc())
-    )
-    return list(result.scalars().all())
+async def list_expenses(
+    db: AsyncSession, current_user: User, limit: int = 100, offset: int = 0
+) -> tuple[list[Expense], int]:
+    base = select(Expense).where(Expense.user_id == current_user.id)
+
+    total_result = await db.execute(select(func.count()).select_from(base.subquery()))
+    total = total_result.scalar_one()
+
+    result = await db.execute(base.order_by(Expense.expense_date.desc()).limit(limit).offset(offset))
+    return list(result.scalars().all()), total
 
 
 async def get_expense(

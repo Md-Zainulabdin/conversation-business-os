@@ -1035,15 +1035,15 @@ async def propose(
         if conversation_id
         else None
     )
-    history = ai_session_store.get_history(key) if key else []
+    history = await ai_session_store.get_history(key) if key else []
     client = client or get_groq_client()
     products, customers = await _load_catalog(db, current_user)
     command = await _parse_command(client, message, products, customers, history)
     proposal = await _build_proposal(command, products, customers)
 
     if key:
-        ai_session_store.push(key, "user", message)
-        ai_session_store.push(key, "assistant", proposal.message)
+        await ai_session_store.push(key, "user", message)
+        await ai_session_store.push(key, "assistant", proposal.message)
     return proposal
 
 
@@ -1306,7 +1306,7 @@ async def execute(
         )
 
     if idempotency_key:
-        cached = idempotency_store.get(
+        cached = await idempotency_store.get(
             _session_key(current_user.id, idempotency_key)
         )
         if cached:
@@ -1335,7 +1335,7 @@ async def execute(
         result = AIExecuteResponse(message=message, record=record)
 
     if idempotency_key:
-        idempotency_store.set(
+        await idempotency_store.set(
             _session_key(current_user.id, idempotency_key), result
         )
     return result

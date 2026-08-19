@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import type { Product, Purchase } from "@/types";
+import type { Page, Product, Purchase } from "@/types";
 
 interface LineItem {
   key: number;
@@ -44,11 +44,11 @@ export default function EditPurchasePage() {
 
   useEffect(() => {
     Promise.all([
-      api.get<Product[]>("/products"),
+      api.get<Page<Product>>("/products?limit=500"),
       api.get<Purchase>(`/purchases/${params.id}`),
     ])
       .then(([prods, purchase]) => {
-        setProducts(prods);
+        setProducts(prods.items);
         setSupplierName(purchase.supplier_name);
         setItems(
           purchase.items.map((item) => ({

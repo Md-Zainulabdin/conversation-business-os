@@ -28,6 +28,8 @@ interface User {
   id: string;
   email: string;
   name: string;
+  store_name?: string | null;
+  currency?: string;
   is_active: boolean;
   created_at: string;
 }
@@ -40,6 +42,7 @@ interface AuthState {
   register: (data: RegisterData) => Promise<void>;
   login: (data: LoginData) => Promise<void>;
   fetchMe: () => Promise<void>;
+  updateProfile: (data: Partial<Pick<User, "name" | "store_name" | "currency">>) => Promise<void>;
   logout: () => void;
   clearError: () => void;
 }
@@ -95,6 +98,19 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (e) {
       set({
         error: e instanceof Error ? e.message : "Failed to load user",
+        loading: false,
+      });
+    }
+  },
+
+  updateProfile: async (data) => {
+    set({ loading: true, error: null });
+    try {
+      const user = await api.patch<User>("/auth/me", data);
+      set({ user, loading: false, error: null });
+    } catch (e) {
+      set({
+        error: e instanceof Error ? e.message : "Failed to update profile",
         loading: false,
       });
     }

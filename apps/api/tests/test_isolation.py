@@ -120,8 +120,8 @@ async def test_list_products_is_scoped_per_user(db):
     product_a = await _make_product(db, user_a, stock=100)
     product_b = await _make_product(db, user_b, stock=100)
 
-    list_a = await product_service.list_products(db, user_a)
-    list_b = await product_service.list_products(db, user_b)
+    list_a, _ = await product_service.list_products(db, user_a)
+    list_b, _ = await product_service.list_products(db, user_b)
 
     assert [p.id for p in list_a] == [product_a.id]
     assert [p.id for p in list_b] == [product_b.id]
@@ -275,11 +275,11 @@ async def test_sessions_are_scoped_per_user(db):
     user_a = await _make_user(db)
     user_b = await _make_user(db)
 
-    ai_session_store.push(f"{user_a.id}:conv", "user", "secret of user A")
-    history_b = ai_session_store.get_history(f"{user_b.id}:conv")
+    await ai_session_store.push(f"{user_a.id}:conv", "user", "secret of user A")
+    history_b = await ai_session_store.get_history(f"{user_b.id}:conv")
 
     assert history_b == []
-    assert len(ai_session_store.get_history(f"{user_a.id}:conv")) == 1
+    assert len(await ai_session_store.get_history(f"{user_a.id}:conv")) == 1
     ai_session_store._sessions.clear()
 
 
@@ -288,10 +288,10 @@ async def test_idempotency_is_scoped_per_user(db):
     user_b = await _make_user(db)
 
     response_a = ai_service.AIExecuteResponse(message="recorded A", record={})
-    idempotency_store.set(f"{user_a.id}:key", response_a)
+    await idempotency_store.set(f"{user_a.id}:key", response_a)
 
-    assert idempotency_store.get(f"{user_b.id}:key") is None
-    assert idempotency_store.get(f"{user_a.id}:key") == response_a
+    assert await idempotency_store.get(f"{user_b.id}:key") is None
+    assert await idempotency_store.get(f"{user_a.id}:key") == response_a
     idempotency_store._results.clear()
 
 

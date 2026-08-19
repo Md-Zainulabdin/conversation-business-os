@@ -19,6 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { TableToolbar } from "@/components/shared/table-toolbar";
+import type { Page } from "@/types";
 
 interface Category {
   id: string;
@@ -39,8 +40,8 @@ export default function CategoriesPage() {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const data = await api.get<Category[]>("/categories");
-      setCategories(data);
+      const { items } = await api.get<Page<Category>>("/categories");
+      setCategories(items);
     } catch {
       // handled by api.ts
     } finally {
@@ -142,7 +143,6 @@ export default function CategoriesPage() {
         <DataTable
           columns={columns}
           data={filtered}
-          total={categories.length}
           filteredCount={filtered.length}
           keyExtractor={(c) => c.id}
           emptyMessage="No categories yet."

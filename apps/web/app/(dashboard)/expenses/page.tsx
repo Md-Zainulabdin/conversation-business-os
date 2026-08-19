@@ -19,6 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { TableToolbar, type FilterConfig, type FilterPill } from "@/components/shared/table-toolbar";
+import type { Page } from "@/types";
 
 interface Expense {
   id: string;
@@ -44,8 +45,8 @@ export default function ExpensesPage() {
 
   const fetchExpenses = useCallback(async () => {
     try {
-      const data = await api.get<Expense[]>("/expenses");
-      setExpenses(data);
+      const { items } = await api.get<Page<Expense>>("/expenses");
+      setExpenses(items);
     } catch {
       // handled by api.ts
     } finally {
@@ -187,7 +188,6 @@ export default function ExpensesPage() {
         <DataTable
           columns={columns}
           data={filtered}
-          total={expenses.length}
           filteredCount={filtered.length}
           keyExtractor={(e) => e.id}
           emptyMessage="No expenses match your criteria."

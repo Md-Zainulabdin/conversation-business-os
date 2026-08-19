@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product import Product
@@ -9,13 +9,18 @@ from app.models.user import User
 from app.schemas.product import ProductCreate, ProductUpdate
 
 
-async def list_products(db: AsyncSession, current_user: User) -> list[Product]:
+async def list_products(
+    db: AsyncSession, current_user: User, limit: int = 100, offset: int = 0
+) -> tuple[list[Product], int]:
+    base = select(Product).where(Product.user_id == current_user.id)
+
+    total_result = await db.execute(select(func.count()).select_from(base.subquery()))
+    total = total_result.scalar_one()
+
     result = await db.execute(
-        select(Product)
-        .where(Product.user_id == current_user.id)
-        .order_by(Product.name)
+        base.order_by(Product.name).limit(limit).offset(offset)
     )
-    return list(result.scalars().all())
+    return list(result.scalars().all()), total
 
 
 async def get_product(

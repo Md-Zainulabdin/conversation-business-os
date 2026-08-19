@@ -164,7 +164,6 @@ export default function DashboardPage() {
       <DataTable
         columns={columns}
         data={filteredTransactions}
-        total={transactions.length}
         filteredCount={filteredTransactions.length}
         keyExtractor={(t) => t.id}
         emptyMessage={loading ? "Loading..." : "No transactions match your query."}

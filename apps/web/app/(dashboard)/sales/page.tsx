@@ -20,7 +20,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { TableToolbar, type FilterConfig, type FilterPill } from "@/components/shared/table-toolbar";
 
-import type { Sale } from "@/types";
+import type { Page, Sale } from "@/types";
 
 type SaleRow = Sale;
 
@@ -36,8 +36,8 @@ export default function SalesPage() {
 
   const fetchSales = useCallback(async () => {
     try {
-      const data = await api.get<Sale[]>("/sales");
-      setSales(data);
+      const { items } = await api.get<Page<Sale>>("/sales");
+      setSales(items);
     } catch {
       // handled by api.ts
     } finally {
@@ -198,7 +198,6 @@ export default function SalesPage() {
         <DataTable
           columns={columns}
           data={filtered}
-          total={sales.length}
           filteredCount={filtered.length}
           keyExtractor={(s) => s.id}
           emptyMessage="No sales records match your query."

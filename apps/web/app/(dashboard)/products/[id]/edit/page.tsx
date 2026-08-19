@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import type { Page } from "@/types";
 
 interface Category {
   id: string;
@@ -55,11 +56,11 @@ export default function EditProductPage() {
 
   useEffect(() => {
     Promise.all([
-      api.get<Category[]>("/categories"),
+      api.get<Page<Category>>("/categories?limit=500"),
       api.get<ProductData>(`/products/${params.id}`),
     ])
       .then(([cats, product]) => {
-        setCategories(cats);
+        setCategories(cats.items);
         setName(product.name);
         setSku(product.sku);
         setCategory(product.category);

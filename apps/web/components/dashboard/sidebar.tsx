@@ -88,7 +88,7 @@ export function Sidebar({ onNavClick, className }: SidebarProps) {
             </div>
             <div className="flex flex-col">
               <span className="font-semibold tracking-tight text-foreground text-sm">
-                CBO Dashboard
+                {user?.store_name || "CBO Dashboard"}
               </span>
               <span className="text-[10px] text-muted-foreground">
                 v1.0 • Retail OS

@@ -69,6 +69,12 @@ export const api = {
       body: JSON.stringify(body),
     });
   },
+  patch<T>(path: string, body: unknown) {
+    return request<T>(path, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  },
   delete<T = void>(path: string) {
     return request<T>(path, { method: "DELETE" });
   },

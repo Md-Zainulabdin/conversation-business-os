@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import type { Page } from "@/types";
 
 interface Category {
   id: string;
@@ -40,7 +41,10 @@ export default function NewProductPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get<Category[]>("/categories").then(setCategories).catch(() => {});
+    api
+      .get<Page<Category>>("/categories?limit=500")
+      .then((data) => setCategories(data.items))
+      .catch(() => {});
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

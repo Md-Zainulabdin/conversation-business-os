@@ -20,7 +20,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { TableToolbar, type FilterConfig, type FilterPill } from "@/components/shared/table-toolbar";
 
-import type { Purchase } from "@/types";
+import type { Page, Purchase } from "@/types";
 
 type PurchaseRow = Purchase;
 
@@ -36,8 +36,8 @@ export default function PurchasesPage() {
 
   const fetchPurchases = useCallback(async () => {
     try {
-      const data = await api.get<Purchase[]>("/purchases");
-      setPurchases(data);
+      const { items } = await api.get<Page<Purchase>>("/purchases");
+      setPurchases(items);
     } catch {
       // handled by api.ts
     } finally {
@@ -191,7 +191,6 @@ export default function PurchasesPage() {
         <DataTable
           columns={columns}
           data={filtered}
-          total={purchases.length}
           filteredCount={filtered.length}
           keyExtractor={(p) => p.id}
           emptyMessage="No purchases match your query."

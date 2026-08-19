@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import type { Product, Sale } from "@/types";
+import type { Page, Product, Sale } from "@/types";
 
 interface Customer {
   id: string;
@@ -50,13 +50,13 @@ export default function EditSalePage() {
 
   useEffect(() => {
     Promise.all([
-      api.get<Product[]>("/products"),
-      api.get<Customer[]>("/customers"),
+      api.get<Page<Product>>("/products?limit=500"),
+      api.get<Page<Customer>>("/customers?limit=500"),
       api.get<Sale>(`/sales/${params.id}`),
     ])
       .then(([prods, custs, sale]) => {
-        setProducts(prods);
-        setCustomers(custs);
+        setProducts(prods.items);
+        setCustomers(custs.items);
         setCustomerId(sale.customer_id || "");
         setItems(
           sale.items.map((item) => ({

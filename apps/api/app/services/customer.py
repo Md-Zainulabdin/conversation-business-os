@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.customer import Customer
@@ -9,13 +9,16 @@ from app.models.user import User
 from app.schemas.customer import CustomerCreate, CustomerUpdate
 
 
-async def list_customers(db: AsyncSession, current_user: User) -> list[Customer]:
-    result = await db.execute(
-        select(Customer)
-        .where(Customer.user_id == current_user.id)
-        .order_by(Customer.name)
-    )
-    return list(result.scalars().all())
+async def list_customers(
+    db: AsyncSession, current_user: User, limit: int = 100, offset: int = 0
+) -> tuple[list[Customer], int]:
+    base = select(Customer).where(Customer.user_id == current_user.id)
+
+    total_result = await db.execute(select(func.count()).select_from(base.subquery()))
+    total = total_result.scalar_one()
+
+    result = await db.execute(base.order_by(Customer.name).limit(limit).offset(offset))
+    return list(result.scalars().all()), total
 
 
 async def get_customer(

@@ -1,16 +1,22 @@
 import uuid
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.category import Category
 from app.schemas.category import CategoryCreate, CategoryUpdate
 
 
-async def list_categories(db: AsyncSession) -> list[Category]:
-    result = await db.execute(select(Category).order_by(Category.name))
-    return list(result.scalars().all())
+async def list_categories(
+    db: AsyncSession, limit: int = 100, offset: int = 0
+) -> tuple[list[Category], int]:
+    total_result = await db.execute(select(func.count()).select_from(Category))
+    total = total_result.scalar_one()
+    result = await db.execute(
+        select(Category).order_by(Category.name).limit(limit).offset(offset)
+    )
+    return list(result.scalars().all()), total
 
 
 async def get_category(db: AsyncSession, category_id: uuid.UUID) -> Category:

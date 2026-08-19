@@ -33,7 +33,7 @@ A web app (Next.js frontend + FastAPI backend) with full retail features:
 - **Transactions**: multi-item sales, purchases, and expenses — stock adjusts automatically, with integrity guards on create/edit/delete.
 - **Dashboard**: total sales, stock, customers, and a searchable recent-activity feed (24h / 7d / 30d / 12m periods).
 - **AI assistant**: type plain language ("Sold 20 packs of rice") and the assistant proposes the transaction, asks for confirmation (and disambiguation when ambiguous), then records it — with idempotency and conversation memory.
-- **101 passing automated tests** covering stock integrity, per-user isolation, AI safety guardrails, and report analytics. CI/CD via GitHub Actions.
+- **114 passing automated tests** covering stock integrity, per-user isolation, AI safety guardrails, report analytics, and HTTP route behavior. CI/CD via GitHub Actions.
 
 ---
 
@@ -45,8 +45,9 @@ A web app (Next.js frontend + FastAPI backend) with full retail features:
 
 - Phase 0 (Foundation), Phase 1 (Inventory), Phase 2 (Sales), Phase 3 (AI) — **done**
 - Phase 4 (WhatsApp) — **paused** (de-prioritized; pipeline is transport-agnostic so it stays an option)
-- Phase 5 (Voice) — **next** (via Groq Whisper API, reusing the existing Groq key)
-- Phase 6 (Reports) — **partially done** (only the dashboard overview exists)
+- Phase 5 (Voice) — **done** (via Groq Whisper API, reusing the existing Groq key)
+- Phase 6 (Reports) — **done** (dashboard overview + reports page with charts)
+- Phase D (Production Hardening) — **done** (Redis AI session/idempotency, pagination, real Settings page, HTTP route tests, low-stock notification bell)
 
 ## Phase A — Security & Repo Hygiene (½ day)
 

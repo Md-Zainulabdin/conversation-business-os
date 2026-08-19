@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product import Product
@@ -70,14 +70,17 @@ async def _load_products(
     return {p.id: p for p in result.scalars().all()}
 
 
-async def list_purchases(db: AsyncSession, current_user: User) -> list[dict]:
-    result = await db.execute(
-        select(Purchase)
-        .where(Purchase.user_id == current_user.id)
-        .order_by(Purchase.purchase_date.desc())
-    )
+async def list_purchases(
+    db: AsyncSession, current_user: User, limit: int = 100, offset: int = 0
+) -> tuple[list[dict], int]:
+    base = select(Purchase).where(Purchase.user_id == current_user.id)
+
+    total_result = await db.execute(select(func.count()).select_from(base.subquery()))
+    total = total_result.scalar_one()
+
+    result = await db.execute(base.order_by(Purchase.purchase_date.desc()).limit(limit).offset(offset))
     purchases = list(result.scalars().all())
-    return await _enrich_purchases(db, purchases)
+    return await _enrich_purchases(db, purchases), total
 
 
 async def get_purchase(

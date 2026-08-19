@@ -19,6 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { TableToolbar, type FilterConfig, type FilterPill } from "@/components/shared/table-toolbar";
+import type { Page } from "@/types";
 
 interface Customer {
   id: string;
@@ -41,8 +42,8 @@ export default function CustomersPage() {
 
   const fetchCustomers = useCallback(async () => {
     try {
-      const data = await api.get<Customer[]>("/customers");
-      setCustomers(data);
+      const { items } = await api.get<Page<Customer>>("/customers");
+      setCustomers(items);
     } catch {
       // handled by api.ts
     } finally {
@@ -198,7 +199,6 @@ export default function CustomersPage() {
         <DataTable
           columns={columns}
           data={filtered}
-          total={customers.length}
           filteredCount={filtered.length}
           keyExtractor={(c) => c.id}
           emptyMessage="No customers found matching your criteria."

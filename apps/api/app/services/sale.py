@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.customer import Customer
@@ -100,14 +100,17 @@ async def _validate_sale_items(
     return products
 
 
-async def list_sales(db: AsyncSession, current_user: User) -> list[dict]:
-    result = await db.execute(
-        select(Sale)
-        .where(Sale.user_id == current_user.id)
-        .order_by(Sale.sale_date.desc())
-    )
+async def list_sales(
+    db: AsyncSession, current_user: User, limit: int = 100, offset: int = 0
+) -> tuple[list[dict], int]:
+    base = select(Sale).where(Sale.user_id == current_user.id)
+
+    total_result = await db.execute(select(func.count()).select_from(base.subquery()))
+    total = total_result.scalar_one()
+
+    result = await db.execute(base.order_by(Sale.sale_date.desc()).limit(limit).offset(offset))
     sales = list(result.scalars().all())
-    return await _enrich_sales(db, sales)
+    return await _enrich_sales(db, sales), total
 
 
 async def get_sale(

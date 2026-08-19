@@ -10,7 +10,7 @@
 
 The architecture follows one strict rule: **AI only understands language — it never touches the database.** Every message becomes a structured proposal that the system validates, the user confirms, and only then is saved. This separation of "understanding" (AI) from "deciding" (backend business logic) is the core engineering idea of the project.
 
-Current state: a **production-quality web app** with a **genuinely conversational AI assistant**, backed by **101 passing automated tests**, **CI/CD on GitHub Actions**, and **multi-user data isolation**.
+Current state: a **production-quality web app** with a **genuinely conversational AI assistant**, backed by **114 passing automated tests**, **CI/CD on GitHub Actions**, and **multi-user data isolation**.
 
 ---
 
@@ -121,7 +121,7 @@ Ranked by impact. Items marked ★ are the highest-value additions.
 
 ## 6. One-Paragraph Pitch (for a resume bullet or demo intro)
 
-> Built a conversational retail management system where a shopkeeper records sales, purchases, expenses, and stock by typing or speaking natural language. The system uses an LLM to turn free-text messages into structured commands, but all validation and data writes happen in a deliberately guarded backend layer — the AI never touches the database directly. The app features per-user data isolation, automatic stock management, a chat-style AI assistant with confirmation and disambiguation, voice input via Whisper transcription, 101 passing tests covering stock integrity and AI safety, and CI/CD via GitHub Actions.
+> Built a conversational retail management system where a shopkeeper records sales, purchases, expenses, and stock by typing or speaking natural language. The system uses an LLM to turn free-text messages into structured commands, but all validation and data writes happen in a deliberately guarded backend layer — the AI never touches the database directly. The app features per-user data isolation, automatic stock management, a chat-style AI assistant with confirmation and disambiguation, voice input via Whisper transcription, 114 passing tests covering stock integrity and AI safety, and CI/CD via GitHub Actions.
 
 ---
 

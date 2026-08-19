@@ -19,6 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { TableToolbar, type FilterConfig, type FilterPill } from "@/components/shared/table-toolbar";
+import type { Page } from "@/types";
 
 interface Product {
   id: string;
@@ -48,9 +49,9 @@ export default function ProductsPage() {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const productsData = await api.get<Product[]>("/products");
-      setProducts(productsData);
-      const uniqueCategories = [...new Set(productsData.map((p) => p.category))].sort();
+      const { items } = await api.get<Page<Product>>("/products");
+      setProducts(items);
+      const uniqueCategories = [...new Set(items.map((p) => p.category))].sort();
       setCategories(uniqueCategories);
     } catch {
       // handled by api.ts
@@ -235,7 +236,6 @@ export default function ProductsPage() {
         <DataTable
           columns={columns}
           data={filtered}
-          total={products.length}
           filteredCount={filtered.length}
           keyExtractor={(p) => p.id}
           emptyMessage="No products yet."

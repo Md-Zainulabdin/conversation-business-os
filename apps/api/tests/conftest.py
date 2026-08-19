@@ -2,8 +2,14 @@ import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import settings
 from app.core.database import Base
 from app.models import Category, Customer, Expense, Product, Purchase, Sale, User  # noqa: F401
+
+
+@pytest.fixture(autouse=True)
+def _no_redis(monkeypatch):
+    monkeypatch.setattr(settings, "REDIS_URL", "")
 
 
 @pytest.fixture

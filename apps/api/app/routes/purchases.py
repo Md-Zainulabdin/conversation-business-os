@@ -1,23 +1,29 @@
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
+from app.schemas.pagination import Page
 from app.schemas.purchase import PurchaseCreate, PurchaseResponse, PurchaseUpdate
 from app.services import purchase as purchase_service
 
 router = APIRouter(prefix="/purchases", tags=["purchases"])
 
 
-@router.get("", response_model=list[PurchaseResponse])
+@router.get("", response_model=Page[PurchaseResponse])
 async def list_purchases(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
 ):
-    return await purchase_service.list_purchases(db, current_user)
+    items, total = await purchase_service.list_purchases(
+        db, current_user, limit=limit, offset=offset
+    )
+    return Page(items=items, total=total, limit=limit, offset=offset)
 
 
 @router.get("/{purchase_id}", response_model=PurchaseResponse)
