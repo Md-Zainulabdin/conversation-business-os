@@ -85,6 +85,8 @@ Current state: a **production-quality web app** with a **genuinely conversationa
 | 4 — WhatsApp | Receive/process/reply via WhatsApp | ⏸ **Paused (de-prioritized)** |
 | 5 — Voice | Voice notes → speech-to-text → AI → execute | ✅ **Done** |
 | 6 — Reports | Daily summary, revenue, low-stock alerts | ✅ **Done** (charts, profit, low-stock) |
+| D — Hardening | Redis sessions, pagination, real settings, HTTP tests, low-stock bell | ✅ **Done** |
+| E — Deployment | Dockerfiles, Railway config, CI deploy | ✅ **Done** (config + docs ready; live deploy on user's Railway account) |
 
 ---
 
@@ -100,22 +102,22 @@ Ranked by impact. Items marked ★ are the highest-value additions.
 
 ### High-value features
 5. ~~**Voice agent (Phase 5)**~~ — done: mic button records audio, `POST /ai/voice` transcribes via Groq Whisper, transcript feeds the exact same propose/confirm/execute pipeline (zero new business logic). Mocked tests prove voice behaves identically to typed text.
-6. **In-memory session → Redis**: session history and idempotency are currently process-local (lost on restart, broken across multiple server workers). Moving to the already-configured Redis (Upstash) is a clean, impressive "production-hardening" line for the resume.
+6. ~~**In-memory session → Redis**~~ — done: session history and idempotency moved to Redis (`REDIS_URL`), safe across multiple workers and restarts.
 
 ### Nice-to-have polish
-7. **Pagination** on list endpoints (currently all rows render client-side).
-8. **Real settings page** (editable store name, currency, account actions) instead of static cards.
-9. **Authentication tests** (currently none) + an HTTP-level API test suite.
+7. ~~**Pagination** on list endpoints (currently all rows render client-side).~~ — done: `Page[T]` pagination on all list endpoints with shared `DataTable` controls.
+8. ~~**Real settings page** (editable store name, currency, account actions) instead of static cards.~~ — done.
+9. ~~**Authentication tests** (currently none) + an HTTP-level API test suite.~~ — done: 13 `TestClient` HTTP route tests.
 10. Read-only **detail/view pages** (currently only list + edit exist).
-11. **CI deployment** to Vercel/Railway on merge to `main` (the CI currently checks quality but doesn't deploy).
+11. ~~**CI deployment** to Vercel/Railway on merge to `main` (the CI currently checks quality but doesn't deploy).~~ — done: deploy job added to `.github/workflows/ci.yml` using the Railway CLI action on `main` merges.
 
 ---
 
 ## 5. Suggested Final Roadmap
 
-1. **Redis-backed sessions** — production hardening.
-2. **Polish pass** — pagination, settings page, auth tests, detail views.
-3. **Deploy** both apps (Vercel + Railway) so it's a live link on the resume.
+1. ~~**Redis-backed sessions**~~ — done (Phase D).
+2. ~~**Polish pass**~~ — done: pagination, settings page, auth/HTTP tests (Phase D).
+3. **Deploy** both apps to Railway (all-Railway) so it's a live link on the resume. See `docs/deployment.md` for step-by-step instructions.
 
 ---
 

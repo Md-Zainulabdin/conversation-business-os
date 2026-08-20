@@ -43,3 +43,22 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: quality
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy API to Railway
+        uses: railwayapp/cli-action@v3
+        with:
+          service: ${{ secrets.RAILWAY_API_SERVICE_ID }}
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Deploy Web to Railway
+        uses: railwayapp/cli-action@v3
+        with:
+          service: ${{ secrets.RAILWAY_WEB_SERVICE_ID }}
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
