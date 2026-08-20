@@ -12,6 +12,8 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/cbo"
     REDIS_URL: str = "redis://localhost:6379"
+    REDIS_TOKEN: str = ""
+    NEXT_PUBLIC_API_URL: str = ""
 
     SECRET_KEY: str = ""
     ENVIRONMENT: str = "development"
@@ -40,7 +42,8 @@ class Settings(BaseSettings):
     @classmethod
     def ensure_asyncpg_driver(cls, value: str) -> str:
         if value.startswith("postgresql://"):
-            return value.replace("postgresql://", "postgresql+asyncpg://", 1)
+            value = value.replace("postgresql://", "postgresql+asyncpg://", 1)
+        value = value.replace("?sslmode=require", "?ssl=require")
         return value
 
     def validate_security(self) -> None:

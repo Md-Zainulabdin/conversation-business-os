@@ -89,6 +89,20 @@ class SeedError(Exception):
     pass
 
 
+def page_items(result):
+    """Unwrap a paginated list response (Page[Item]) into its items list."""
+    if isinstance(result, dict) and "items" in result:
+        return result["items"]
+    return result or []
+
+
+def page_total(result):
+    """Return the total count from a paginated list response."""
+    if isinstance(result, dict) and "total" in result:
+        return result["total"]
+    return len(page_items(result))
+
+
 def api(method, path, token=None, body=None):
     url = f"{API_BASE}{path}"
     headers = {"Content-Type": "application/json"}
@@ -119,7 +133,7 @@ def login_or_register() -> str:
 
 
 def seed_categories(token):
-    existing = {c["name"] for c in api("GET", "/categories", token=token)}
+    existing = {c["name"] for c in page_items(api("GET", "/categories", token=token))}
     for name in CATEGORIES:
         if name in existing:
             print(f"  skip category: {name}")
@@ -129,7 +143,7 @@ def seed_categories(token):
 
 
 def seed_products(token):
-    existing = {p["sku"] for p in api("GET", "/products", token=token)}
+    existing = {p["sku"] for p in page_items(api("GET", "/products", token=token))}
     for product in PRODUCTS:
         if product["sku"] in existing:
             print(f"  skip product: {product['name']}")
@@ -139,7 +153,7 @@ def seed_products(token):
 
 
 def seed_customers(token):
-    existing = {c["phone"] for c in api("GET", "/customers", token=token)}
+    existing = {c["phone"] for c in page_items(api("GET", "/customers", token=token))}
     for customer in CUSTOMERS:
         if customer["phone"] in existing:
             print(f"  skip customer: {customer['name']}")
@@ -156,7 +170,7 @@ def id_by_name(items, name):
 
 
 def seed_purchases(token, products):
-    if api("GET", "/purchases", token=token):
+    if page_total(api("GET", "/purchases", token=token)):
         print("  skip purchases: records already exist")
         return
     for p in PURCHASES:
@@ -174,7 +188,7 @@ def seed_purchases(token, products):
 
 
 def seed_sales(token, products, customers):
-    if api("GET", "/sales", token=token):
+    if page_total(api("GET", "/sales", token=token)):
         print("  skip sales: records already exist")
         return
     for s in SALES:
@@ -194,7 +208,7 @@ def seed_sales(token, products, customers):
 
 
 def seed_expenses(token):
-    if api("GET", "/expenses", token=token):
+    if page_total(api("GET", "/expenses", token=token)):
         print("  skip expenses: records already exist")
         return
     for e in EXPENSES:
@@ -203,11 +217,11 @@ def seed_expenses(token):
 
 
 def get_product_ids(token):
-    return {p["name"]: p["id"] for p in api("GET", "/products", token=token)}
+    return {p["name"]: p["id"] for p in page_items(api("GET", "/products", token=token))}
 
 
 def get_customer_ids(token):
-    return {c["name"]: c["id"] for c in api("GET", "/customers", token=token)}
+    return {c["name"]: c["id"] for c in page_items(api("GET", "/customers", token=token))}
 
 
 def main():
