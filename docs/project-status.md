@@ -109,7 +109,7 @@ Ranked by impact. Items marked ★ are the highest-value additions.
 8. ~~**Real settings page** (editable store name, currency, account actions) instead of static cards.~~ — done.
 9. ~~**Authentication tests** (currently none) + an HTTP-level API test suite.~~ — done: 13 `TestClient` HTTP route tests.
 10. Read-only **detail/view pages** (currently only list + edit exist).
-11. ~~**CI deployment** to Vercel/Railway on merge to `main` (the CI currently checks quality but doesn't deploy).~~ — done: deploy job added to `.github/workflows/ci.yml` using the Railway CLI action on `main` merges.
+11. ~~**CI deployment** to Vercel/Railway on merge to `main` (the CI currently checks quality but doesn't deploy).~~ — done: deploy job added to `.github/workflows/ci.yml` using the Railway CLI image on `main` merges.
 
 ---
 

@@ -69,7 +69,7 @@ After both services show `Active` in Railway:
 
 ## 6. CI/CD
 
-`.github/workflows/ci.yml` runs quality checks on every PR/push to `main`, and on merge to `main` additionally deploys both services via the Railway CLI action. Required GitHub secrets:
+`.github/workflows/ci.yml` runs quality checks on every PR/push to `main`, and on merge to `main` additionally deploys both services using the Railway CLI image (`ghcr.io/railwayapp/cli:latest`) with `railway up --service`. Required GitHub secrets:
 
 | Secret | Value |
 |--------|-------|
