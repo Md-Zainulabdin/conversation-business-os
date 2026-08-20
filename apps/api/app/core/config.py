@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -34,6 +35,13 @@ class Settings(BaseSettings):
         "env_file": BACKEND_DIR / ".env",
         "case_sensitive": True,
     }
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def ensure_asyncpg_driver(cls, value: str) -> str:
+        if value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return value
 
     def validate_security(self) -> None:
         if self.ENVIRONMENT == "production" and not self.SECRET_KEY:
